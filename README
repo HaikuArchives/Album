@@ -1,0 +1,80 @@
+Album (code name Aberration)
+
+Copyright (c) 2006-2009 by Matjaž Kovač
+
+Album is a file browsing and tagging utility for BeOS and compatibles. It started out with a goal of the ultimate image organiser (code named Aberration), 
+but ended up as something much more modest and BeOS-specific. 
+The idea is to have a work pad for pictures from different locations where they can be previewed and tagged in one place. 
+The program is not limited to picture files and BFS (Be File System) volumes, although that further limits whatever the usefulness since 
+much of the functionality has to do with file attributes. 
+
+COMPATIBILITY
+
+This program is designed for the BeOS R5. 
+As of time of this release it works with the latest Haiku OS development builds.
+
+DOCUMENTATION AND UPDATES
+
+Documentation is included with the release for updates check:
+http://users.volja.net/mkovac1/proj/album 
+or the BeBit entry:
+http://www.bebits.com/app/4415
+
+DISTRIBUTION
+
+This software is distributed under the terms of the MIT license. See src/LICENSE for details.
+Since it links to LGPL licensed libraries full source code is provided  to comply with the chapter 6 of the LGPL.
+See src/libiptcdata/COPYING for details.
+
+COMPILING
+
+Included with the sources is a makefile for the build system that came with the original BeOS R5 Development tool-chain.
+Additionaly there is a ready-made BeIDE project file.
+
+AUTHOR
+
+Matjaž Kovač
+Ljubljana, Slovenia
+matjaz.kovac@volja.net
+
+CHANGES
+
+From 0.9.1 to 0.9.2
+- Improved inter-apllication interoperability by implementing the negotiaded drag&drop. This allows you to drag images from PhotoGrabber (camera import utility) and similar applications. It isn't ideal though. 
+The problem is that kind of data exchange only works on files so Album first
+creates a temporary directory in B_COMMON_TEMP_DIRECTORY/Album and starts watching for new files. 
+It then instructs the sender (the application files are dragged from) to store its
+stuff there. If the sender somehow manages to overwrite existing files, they won't show up, because nothing was created, technically.
+Remember to move images to a safer location by dragging them from Album elsewhere.
+
+- Responds to Open With.. in Tracker.
+
+
+From 0.9 to 0.9.1
+- Three types of labels can be set independently.
+- Selection made less time consuming.
+
+From 0.7 to 0.9
+- Overhauled UI
+- Simplified source code, Haiku/BeOS compatible makefile
+- Switched back to custom EXIF extraction (should speed up loading)
+- Simplification and omission of some less used features
+- Uses app_server for scaling
+- Marked items are stored as BFS attributes
+- Shows JPEG comments/width/height
+- Speed optimizations, less memory allocations
+
+From 0.3 to 0.7
+- Switched to libexif and libiptcdata
+- EXIF thumbnail extraction
+- IPTC tags extraction
+- Many user interface changes (tag indicator icons, marking, cosmetic improvements)
+
+From 0.1 to 0.3
+- Switched to a home-grown EXIF extraction lib.
+- Tag import (Attribute association)
+- Improved font sensitivity
+- Added Labels menu
+- Minor changes
+
+
