@@ -142,7 +142,7 @@ MainWindow::MainWindow(BRect frame, const char *title):
 	
 	// Create a tempory repository for negotiated drops from image ditors etc.
 	BPath path;
-	if (find_directory(B_COMMON_TEMP_DIRECTORY, &path) == B_OK) {
+	if (find_directory(B_SYSTEM_TEMP_DIRECTORY, &path) == B_OK) {
 		path.Append("Album");
 		if (create_directory(path.Path(), 0x777) == B_OK) {
 			fRepository.SetTo(path.Path());
