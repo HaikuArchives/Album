@@ -41,12 +41,12 @@ App.cpp MainWindow.cpp FileAttrDialog.cpp MainSidebar.cpp OpenWithMenu.cpp Setti
 
 #	specify the resource definition files to use
 #	full path or a relative path to the resource file can be used.
-RDEFS= 
+RDEFS= Album.rdef
 	
 #	specify the resource files to use. 
 #	full path or a relative path to the resource file can be used.
 #	both RDEFS and RSRCS can be defined in the same makefile.
-RSRCS= Album.rsrc
+RSRCS= 
 
 # @<-src@ 
 #%}
