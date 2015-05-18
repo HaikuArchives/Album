@@ -18,7 +18,7 @@ TYPE= APP
 
 # 	if you plan to use localization features 
 # 	specify the application MIME siganture
-APP_MIME_SIG= 
+APP_MIME_SIG=
 
 #	add support for new Pe and Eddie features
 #	to fill in generic makefile
@@ -38,7 +38,7 @@ SRCS= util/BufferedView.cpp util/LayoutPlan.cpp util/ProgressBar.cpp \
 	util/EditableListView.cpp util/LayoutView.cpp util/SplitView.cpp \
 	util/IconButton.cpp util/NameValueItem.cpp \
 	exif.c JpegTagExtractor.cpp TagExtractor.cpp \
-	AlbumItem.cpp FileNameDialog.cpp MainToolbar.cpp \
+	AlbumItem.cpp MainToolbar.cpp \
 	AlbumView.cpp ImageLoader.cpp MainView.cpp \
 	App.cpp MainWindow.cpp FileAttrDialog.cpp \
 	MainSidebar.cpp OpenWithMenu.cpp SettingsWindow.cpp
@@ -126,13 +126,13 @@ SYMBOLS =
 #	specify debug settings
 #	if TRUE will allow application to be run from a source-level
 #	debugger.  Note that this will disable all optimzation.
-DEBUGGER = 
+DEBUGGER = TRUE
 
 #	specify additional compiler flags for all files
-COMPILER_FLAGS =
+COMPILER_FLAGS = 
 
 #	specify additional linker flags
-LINKER_FLAGS =
+LINKER_FLAGS = 
 
 #	specify the version of this particular item
 #	(for example, -app 3 4 0 d 0 -short 340 -long "340 "`echo -n -e '\302\251'`"1999 GNU GPL") 

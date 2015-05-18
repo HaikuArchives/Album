@@ -84,8 +84,8 @@ void TagExtractor::TagExtracted(int category, int id, const char *name, int type
 /**
 	Gets all metadata from the file.
 */
-int TagExtractor::Extract(BMessage *tags)
+status_t TagExtractor::Extract(BMessage *tags, uint32 *features)
 {
 	fTags = tags;
-	return 0;
+	return B_OK;
 }

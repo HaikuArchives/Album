@@ -1,21 +1,31 @@
+
+#define DEBUG 1
 #include <Debug.h>
-#include "MainWindow.h"
-#include "App.h"
 #include <Alert.h>
 #include <Path.h>
 #include <File.h>
 #include <FindDirectory.h>
+#include <Screen.h>
+#include "App.h"
+#include "MainWindow.h"
 
-#define ABOUT_TEXT "Album (Code Name Aberration) v0.9.2\n\nCopyright "B_UTF8_COPYRIGHT" 2006-2010 by Matjaž Kovač\n""This program is distributed under the terms of the MIT License (see LICENSE).\n""Includes libiptcdata, copyright "B_UTF8_COPYRIGHT" 2005 by David Moore under the terms of the GNU LGPL.\n""Recompiled on "__DATE__
+#ifdef __HAIKU__    
+BDateTimeFormat App::dateTimeFmt;
+BNumberFormat App::numberFmt;
+#endif
+
 
 
 /// Allocates essential resources.
 App::App(): 
 	BApplication(APP_SIGNATURE)
 {
-	fMain = new MainWindow(BRect(20,30,640,530), "Album");
+	BScreen screen;
+	BRect r = screen.Frame().InsetByCopy(200,140);
+	fMain = new MainWindow(r, "Album");
 	fMain->Show();
-	fPrefsDialog = new SettingsWindow(BRect(40, 40, 440, 260), _("Preferences"));
+
+	fPrefsDialog = new SettingsWindow(BRect(80, 80, 500, 350), _("Album Preferences"));
 }
 
 /** 
@@ -23,7 +33,7 @@ App::App():
 */
 void App::AboutRequested()
 {
-    BAlert* box = new BAlert(_("About"), ABOUT_TEXT, _("Cool"));
+    BAlert* box = new BAlert(_("About"), S_ABOUT_TEXT, _("Cool"));
     box->Go();
     // BAlert deleted itself.
 }
@@ -53,19 +63,10 @@ void App::MessageReceived(BMessage *message)
     }
 }
 
-/**
-	Closes all windows and calls it a run.
-*/
+
 bool App::QuitRequested()
 {
-	// This better work...
-	BWindow *window = NULL;
-	while ((window = WindowAt(0))) {
-		if (window->Lock())
-			window->Quit();
-		else break;
-	}
-	return true;
+	return true;	
 }
 
 
@@ -75,10 +76,15 @@ bool App::QuitRequested()
 void App::ReadyToRun() 
 {
 	BMessage prefs;
-	// defaults
+	// fail-safe defaults
 	prefs.AddInt32("load_options", 3);
 	prefs.AddInt32("display_options", 1);
+	prefs.AddString("thumb_format","JPEG");
+	prefs.AddFloat("thumb_width",64);
+	prefs.AddFloat("thumb_height",64);
 	RestorePreferences(&prefs, "Album_settings");
+
+	// Dispatch to all windows
 	UpdatePreferences(&prefs);
 }
 
@@ -134,6 +140,37 @@ void App::UpdatePreferences(BMessage *message)
 		window->PostMessage(message);		
 	}
 }
+
+
+/**
+	Localizes time, writes output to buffer 's', max n bytes.
+*/
+void App::FormatTimestamp(char *s, int n, time_t t)
+{
+#ifdef __HAIKU__		
+	dateTimeFmt.Format(s, n, t, B_SHORT_DATE_FORMAT,B_SHORT_TIME_FORMAT);	
+#else
+	strftime(s, n, "%x %X", localtime (&t));
+#endif
+}
+
+
+void App::FormatFileSize(char *s, int n, int64 fsize)
+{
+	if (fsize < 10000) {
+		sprintf(s, _("%ld bytes"), (long)fsize);
+	}
+	else {
+#ifdef __HAIKU__
+		double v = (10*fsize/1024)/10.0;
+		App::numberFmt.Format(s, n, (double)v);
+		strcat(s, " KB");
+#else
+		sprintf(s, "%.1f KB", fsize/1024.0);
+#endif
+	}
+}
+
 
 
 

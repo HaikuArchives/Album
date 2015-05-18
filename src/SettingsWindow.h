@@ -9,6 +9,7 @@
 #include <Button.h>
 #include <TextControl.h>
 #include <ListView.h>
+
 enum {
     CMD_DONE = 'done',
     MSG_EXTRACTTAGS_CHECK = 'Chk1'
@@ -33,6 +34,8 @@ class SettingsWindow : public BWindow
     BPopUpMenu *fFormatMenu;
     BCheckBox *fExtractTags;
     BCheckBox *fExifThumb;
+    BCheckBox *fReloadExisting;
+    BCheckBox *fOnlyImages;
     BCheckBox *fAntiFlicker;
 };
 

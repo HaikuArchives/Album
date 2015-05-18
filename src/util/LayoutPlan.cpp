@@ -208,6 +208,8 @@ BRect StripesLayout::Next(BRect rect, uint32 hint)
 				rect.right = Frame().right;
 			if (hint & LAYOUT_HINT_LAST) 
 				rect.bottom = Frame().bottom;
+			if ((hint & LAYOUT_HINT_CLIP) && rect.Intersects(Frame()))
+				rect = Frame() & rect;				
 		}
 	}
 	else if (fMode == B_HORIZONTAL) {

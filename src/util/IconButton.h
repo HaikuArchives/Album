@@ -10,7 +10,7 @@ class IconButton : public BButton
 	
 	IconButton(BRect frame, const char *name, 
 					const char *label, BBitmap *iconOff, BBitmap *iconOn, BMessage *message, 
-					uint32 resizing = B_FOLLOW_NONE, uint32 flags = 0);
+					uint32 resizing = B_FOLLOW_NONE, uint32 flags = B_NAVIGABLE);
 	~IconButton();
 	virtual void AttachedToWindow();
 	virtual void Draw(BRect update);

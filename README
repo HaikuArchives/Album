@@ -2,42 +2,46 @@ Album (code name Aberration)
 
 Copyright (c) 2006-2009 by Matjaž Kovač
 
-Album is a file browsing and tagging utility for BeOS and compatibles. It started out with a goal of the ultimate image organiser (code named Aberration), 
-but ended up as something much more modest and BeOS-specific. 
-The idea is to have a work pad for pictures from different locations where they can be previewed and tagged in one place. 
-The program is not limited to picture files and BFS (Be File System) volumes, although that further limits whatever the usefulness since 
-much of the functionality has to do with file attributes. 
+Album is a file browsing and tagging utility for BeOS/Haiku. 
+The idea is to have a work pad for pictures from different locations so they may be viewed and tagged. 
+The program is not limited to pictures and BFS (Be File System) volumes, although that makes most sense since some of the functionality has to do with file attributes. 
 
-COMPATIBILITY
-
-This program is designed for the BeOS R5. 
-As of time of this release it works with the latest Haiku OS development builds.
 
 DOCUMENTATION AND UPDATES
 
-Documentation is included with the release for updates check:
+Functionality is very similar to previous versions as described at
 http://users.volja.net/mkovac1/proj/album 
-or the BeBit entry:
+or the BeBits entry:
 http://www.bebits.com/app/4415
 
 DISTRIBUTION
 
-This software is distributed under the terms of the MIT license. See src/LICENSE for details.
-Since it links to LGPL licensed libraries full source code is provided  to comply with the chapter 6 of the LGPL.
-See src/libiptcdata/COPYING for details.
+This software is distributed under the terms of the MIT license. See LICENSE for details.
 
 COMPILING
 
-Included with the sources is a makefile for the build system that came with the original BeOS R5 Development tool-chain.
-Additionaly there is a ready-made BeIDE project file.
+BeOS Generic Makefile, compiles on recent Haiku builds and BeOS R5 with some features disabled. Requires development headers for 'libiptcdata' library. 
 
 AUTHOR
 
 Matjaž Kovač
 Ljubljana, Slovenia
-matjaz.kovac@volja.net
+matjakov@gmail.com
 
 CHANGES
+
+From 0.9.2 to 0.9.4
+-source reworked
+-Haiku tooltips, colors and date localization
+-navigation improvements
+-image loading bugs fixed
+-UI glitches fixed
+-redundant messaging removed
+-new preferences
+-"rebuild thumbnails" menu option
+-mod. time label added
+-experimental clipboiard support
+
 
 From 0.9.1 to 0.9.2
 - Improved inter-apllication interoperability by implementing the negotiaded drag&drop. This allows you to drag images from PhotoGrabber (camera import utility) and similar applications. It isn't ideal though. 

@@ -469,7 +469,7 @@ char* exif_str(char *s, exif_tag_t *tag)
             else if (tag->format == FORMAT_URATIONAL || tag->format == FORMAT_SRATIONAL)
                 sprintf(s, "%g", rat2float(tag->data));
             else if (tag->format == FORMAT_ULONG || tag->format == FORMAT_SLONG)
-                sprintf(s, "%d", tag->value);
+                sprintf(s, "%ld", tag->value);
             else if (tag->format == FORMAT_USHORT || tag->format == FORMAT_SSHORT)
                 sprintf(s, "%hd", (uint16)tag->value);
             else

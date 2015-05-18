@@ -66,20 +66,21 @@ JpegTagExtractor::~JpegTagExtractor()
 
 
 /**
-	Returns negative number if not an JPEG file or
-	bitfields indicating features: HAS_IPTC, HAS_EXIF.
+	Extracts JPEG tags.
+	\returns B_BAD_VALUE if not a JPEG file.
+	features: HAS_IPTC, HAS_EXIF.
 */
-int JpegTagExtractor::Extract(BMessage *tags)
+status_t JpegTagExtractor::Extract(BMessage *tags, uint32 *features)
 {
 	TagExtractor::Extract(tags);
+	uint32 flags = 0;
+	uint16 magic = 0;
     uint16 size;
     int c = 0;
-	uint16 magic = 0;
-	int flags = 0;
 	Read(&magic, 2);
 	if (ntohs(magic) != 0xffd8)
 		// not a JPEG file
-		return -1;
+		return B_BAD_VALUE;
 	// scan JPEG markers
     while (c != EOF) {
         if ((c = Read()) != 0xff)
@@ -87,7 +88,6 @@ int JpegTagExtractor::Extract(BMessage *tags)
         if ((c = Read()) == 0)
             continue;
         // marker detected
-        //PRINT(("MARK %X\n", c));
         switch (c) {
 			case APP0:
 				ReadAPP0();
@@ -110,9 +110,12 @@ int JpegTagExtractor::Extract(BMessage *tags)
                 Read(NULL, ntohs(size)-2);
                 break;
             default:
-                if (c >= SOF0 && c <= SOF15)
+                if (c >= SOF0 && c <= SOF15) {
                     // no more metadata, image data start
-                    return ReadSOF() >=0 ? flags : -1;
+                    if (features)
+                    	*features = flags;
+                    return ReadSOF() >=0 ? B_OK : B_ERROR;
+                }
                 if (c >= APP0 && c <= APP15) {
                     // skip unknown application segments
                     Read(&size, 2);
@@ -120,7 +123,7 @@ int JpegTagExtractor::Extract(BMessage *tags)
                 }
         };
     }
-    return -1;
+    return B_ERROR;
 }
 
 
@@ -172,7 +175,7 @@ int JpegTagExtractor::ReadIFD(exif_ifd_t *ifd, uint8 *data, int ofs, bool skip)
             	thumbsize = tag.value;
         }
 
-		PRINT(("IFD %d %d\n", ifd->ofs, ifd->size));
+		//PRINT(("IFD %d %d\n", ifd->ofs, ifd->size));
 
         // store the thumbnail if complete and new
 	    if (thumb && thumbsize && !fThumbnailData) {

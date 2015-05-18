@@ -31,6 +31,11 @@ Depends on LayoutPlan.cpp
 #include <SplitView.h>
 
 
+/**
+	Creates a new instance.
+	Add children normally. When the instance itself is attached it will arrange them.
+	B_PULSE_NEED flag enables the "drawer" animation effect.
+*/
 SplitView::SplitView(BRect frame, const char *name, uint32 mode, uint32 resize, uint32 flags):
 	BView(frame, name, resize, flags | B_WILL_DRAW),
 	fLayout(BRect(), mode),
@@ -49,7 +54,7 @@ SplitView::~SplitView()
 }
 
 /**
-	
+	Arranges children.	
 */
 void SplitView::AllAttached()
 {
@@ -198,7 +203,7 @@ void SplitView::Arrange()
 	uint32 hint = LAYOUT_HINT_NONE;
 	for (int32 i = 0; (child = ChildAt(i)); i++) {
 		if (i == CountChildren() - 1)
-			hint |= LAYOUT_HINT_LAST;
+			hint |= (LAYOUT_HINT_LAST | LAYOUT_HINT_CLIP);
 		BRect frame = fLayout.Next(child->Frame(), hint);
 		child->MoveTo(frame.LeftTop());
 		child->ResizeTo(frame.Width(), frame.Height());

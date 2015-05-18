@@ -1,146 +1,18 @@
+#define DEBUG 1
+#include <Debug.h>
 #include <Roster.h>
-
 #include <PopUpMenu.h>
 #include <MenuItem.h>
-
-#include "App.h"
-#include "MainView.h"
-#include "indicatorbitmaps.h"
-#include "OpenWithMenu.h"
-// constants
 #include <JpegTagExtractor.h>
 #include <FindDirectory.h>
-#include <Entry.h>
 #include <Path.h>
 #include <Node.h>
-
-
-
-// Indicator bitmaps
-BBitmap* AlbumFileItem::fMarkBmp = NULL;	
-BBitmap* AlbumFileItem::fExifBmp = NULL;	
-BBitmap* AlbumFileItem::fIptcBmp = NULL;	
-BBitmap* AlbumFileItem::fLockBmp = NULL;	
-
-
-/**
-	An image browser item - one per entry.
-*/
-AlbumFileItem::AlbumFileItem(BRect frame, BBitmap *bitmap):
-	AlbumItem(frame, bitmap)
-{
-	fPadding = 7;
-	// for "no order" sorting
-	static int counter = 0;
-	fSerial = counter++;
-}
-
-
-/**
-	Overlays indicator icons.
-*/
-void AlbumFileItem::DrawItem(BView *owner, uint32 flags)
-{
-	AlbumItem::DrawItem(owner, flags);
-	owner->SetDrawingMode(B_OP_ALPHA);
-	if (fFlags & ITEM_FLAG_DIMMED) {
-		owner->SetPenSize(4.5);
-		BRect rect = fFrame.InsetByCopy(4+fPadding,4+fPadding);
-		owner->StrokeLine(rect.LeftTop(), rect.RightBottom());
-		owner->StrokeLine(rect.RightTop(), rect.LeftBottom());
-	}
-	BPoint pos = fFrame.LeftTop() + BPoint(fPadding, 0);
-	if (fFlags & ITEM_FLAG_MARKED) {
-		owner->DrawBitmap(fMarkBmp, pos);
-		pos.x += mark_png_width;
-	}
-	if (fFlags & HAS_EXIF) {
-		owner->DrawBitmap(fExifBmp, pos);
-		pos.x += exif_png_width;
-	}
-	if (fFlags & HAS_IPTC) {
-		owner->DrawBitmap(fIptcBmp, pos);
-		pos.x += iptc_png_width;
-	}
-	if (fFlags & ITEM_FLAG_LOCKED) {
-		owner->DrawBitmap(fLockBmp, pos);
-		pos.x += lock_png_width;
-	}
-		
-
-}
-
-/**
-	Inits labels.
-*/
-void AlbumFileItem::Update(BView *owner)
-{
-	AlbumItem::Update(owner);
-	fLabel[0] = fRef.name;
-	sprintf(fLabel[1].LockBuffer(20), "%.1f KB", 1.0*fFSize/1024);
-	fLabel[1].UnlockBuffer();	
-	if (owner) {
-		owner->TruncateString(&fLabel[0], B_TRUNCATE_END, fFrame.Width() - fPadding);
-		owner->TruncateString(&fLabel[1], B_TRUNCATE_END, fFrame.Width() - fPadding);
-	}
-	
-	int16 width, height;
-	if (fTags.FindInt16("Width", &width) == B_OK && fTags.FindInt16("Height", &height) == B_OK) {
-		char *buf = fLabel[2].LockBuffer(32);
-		sprintf(buf,"%dx%d", width, height);
-		fLabel[2].UnlockBuffer();
-	}
-}
-
-
-const char* AlbumFileItem::Label(int index)
-{
-	if (index == 0 && (Flags() & ITEM_FLAG_LABEL0) == 0 ||
-		index == 1 && (Flags() & ITEM_FLAG_LABEL1) == 0 ||
-		index == 2 && (Flags() & ITEM_FLAG_LABEL2) == 0	)
-		return NULL;	
-	return fLabel[index].String();
-}
-
-
-int AlbumFileItem::CountLabels()
-{
-	return 3;
-}
-
-
-const entry_ref& AlbumFileItem::Ref() const
-{
-	return fRef;
-}
-
-
-void AlbumFileItem::SetRef(entry_ref &ref)
-{
-	fRef = ref;
-
-	// Check if this reference is in the Trash dir.
-   	char trashpath[B_PATH_NAME_LENGTH];
-  	// unfortunately this only works for /boot
-  	find_directory(B_TRASH_DIRECTORY, ref.device, false, trashpath, B_PATH_NAME_LENGTH);
-	BEntry entry(&ref);
-	BPath path;
-	if (entry.GetPath(&path) == B_OK) {
-		BString paths = path.Path();
-		// Trash items are marked with special gfx.
-		if (paths.FindFirst(trashpath) == 0)  {
-			fFlags |= ITEM_FLAG_DIMMED;
-		}
-		else {
-			fFlags &= ~ITEM_FLAG_DIMMED;
-		}
-		// Check if it's read-only
-		if (access(paths.String(), W_OK) != 0)
-			fFlags |= ITEM_FLAG_LOCKED;
-		else		
-			fFlags &= ~ITEM_FLAG_LOCKED;
-	}
-}
+#include <Autolock.h>
+#include <TranslationKit.h>
+#include "MainView.h"
+#include "OpenWithMenu.h"
+#include "App.h"
+#include "MainWindow.h"
 
 
 /**
@@ -224,19 +96,140 @@ int AlbumFileItem::CmpDir(const AlbumItem *a, const AlbumItem *b)
 }
 
 
+
+
+
+
 /**
-	Only once!
+	An image browser item - one per entry.
 */
-void AlbumFileItem::InitBitmaps()
+AlbumFileItem::AlbumFileItem(BRect frame, BBitmap *bitmap):
+	AlbumItem(frame, bitmap)
 {
-	fMarkBmp = new BBitmap(BRect(0,0,mark_png_width,mark_png_height), B_RGBA32);
-	memcpy(fMarkBmp->Bits(), mark_png_bits, mark_png_size);	
-	fExifBmp = new BBitmap(BRect(0,0,exif_png_width,exif_png_height), B_RGBA32);	
-	memcpy(fExifBmp->Bits(), exif_png_bits, exif_png_size);	
-	fIptcBmp = new BBitmap(BRect(0,0,iptc_png_width,iptc_png_height), B_RGBA32);	
-	memcpy(fIptcBmp->Bits(), iptc_png_bits, iptc_png_size);	
-	fLockBmp = new BBitmap(BRect(0,0,lock_png_width,lock_png_height), B_RGBA32);	
-	memcpy(fLockBmp->Bits(), lock_png_bits, lock_png_size);	
+	fPadding = 10;
+	// for "no order" sorting
+	static int counter = 0;
+	fSerial = counter++;
+}
+
+
+/**
+	Overlays indicator icons.
+*/
+void AlbumFileItem::DrawItem(BView *owner)
+{
+	static BBitmap* markIcon = BTranslationUtils::GetBitmap('PNG ', "item-mark");	
+	static BBitmap* exifIcon = BTranslationUtils::GetBitmap('PNG ', "item-exif");	
+	static BBitmap* iptcIcon = BTranslationUtils::GetBitmap('PNG ', "item-iptc");	
+	static BBitmap* lockIcon = BTranslationUtils::GetBitmap('PNG ', "item-lock");		
+	
+	AlbumItem::DrawItem(owner);
+	owner->SetDrawingMode(B_OP_ALPHA);
+	if (Flags() & ITEM_FLAG_DIMMED) {
+		owner->SetPenSize(3);
+		owner->SetHighColor(255,0,0,255);
+		BRect rect = ((BRect)Frame()).InsetByCopy(fPadding, fPadding);
+		owner->StrokeLine(rect.LeftTop(), rect.RightBottom());
+		owner->StrokeLine(rect.RightTop(), rect.LeftBottom());
+	}
+	
+	// indicator icons look best positioned this way
+	BPoint pos = Frame().LeftTop() + BPoint(fPadding, fPadding-7);
+	
+	if ((Flags() & ITEM_FLAG_MARKED) && markIcon) {
+		owner->DrawBitmap(markIcon, pos);
+		pos.x += markIcon->Bounds().right;
+	}
+	if ((Flags() & ITEM_FLAG_LOCKED) && lockIcon) {
+		owner->DrawBitmap(lockIcon, pos);
+		pos.x += lockIcon->Bounds().right;
+	}
+	if ((Flags() & ITEM_FLAG_EXIF) && exifIcon) {
+		owner->DrawBitmap(exifIcon, pos);
+		pos.x += exifIcon->Bounds().right;
+	}
+	if ((Flags() & ITEM_FLAG_IPTC) && iptcIcon) {
+		owner->DrawBitmap(iptcIcon, pos);
+		pos.x += iptcIcon->Bounds().right;
+	}
+		
+
+}
+
+
+uint16 AlbumFileItem::CountLabels()
+{
+	return sizeof 4;
+}
+
+
+void AlbumFileItem::GetLabel(uint16 index, BString *label)
+{
+	switch (index)
+	{
+		case 0:
+			label->SetTo(fRef.name);
+			break;
+		case 1:
+			App::FormatFileSize(label->LockBuffer(30), 30, fFSize);
+			label->UnlockBuffer();
+			break;
+		case 2:
+			sprintf(label->LockBuffer(30), "%d×%d", fImgWidth, fImgHeight);
+			label->UnlockBuffer();
+			break;
+		case 3:
+			App::FormatTimestamp(label->LockBuffer(30), 30, fMTime);
+			label->UnlockBuffer();
+			break;		
+	}
+}
+
+
+/**
+	Label visibility.
+	16 MSBs of Flags() are reserved for labels.
+*/
+bool AlbumFileItem::IsLabelVisible(uint16 index)
+{
+	return Flags() & (0x00010000 << index);
+}
+
+
+
+
+const entry_ref& AlbumFileItem::Ref() const
+{
+	return fRef;
+}
+
+
+void AlbumFileItem::SetRef(entry_ref &ref)
+{
+	fRef = ref;
+	
+	// Check if this reference is in the Trash dir.
+   	char trashpath[B_PATH_NAME_LENGTH];
+	BEntry entry(&ref);
+	BPath path;
+	if (entry.GetPath(&path) == B_OK) {
+  		// Trash is per-volume dir.
+		BString paths = path.Path();
+  		status_t ret = find_directory(B_TRASH_DIRECTORY, ref.device, false, trashpath, B_PATH_NAME_LENGTH);
+		SetFlags(ITEM_FLAG_DIMMED, ret == B_OK && paths.FindFirst(trashpath) == 0);
+		// Check if it's read-only
+		SetFlags(ITEM_FLAG_LOCKED, access(paths.String(), W_OK) != 0);
+	}
+	
+	
+	
+}
+
+
+
+const uint32 AlbumFileItem::Serial()
+{
+	return fSerial;	
 }
 
 
@@ -245,37 +238,100 @@ void AlbumFileItem::InitBitmaps()
 
 
 
-
-MainView::MainView(BRect frame, uint32 resizing):
-	AlbumView(frame, "Browser", new BMessage(MSG_ITEM_SELECTED), resizing, B_PULSE_NEEDED | B_NAVIGABLE_JUMP),
-	fAniItems(8)
+/**
+	A new specialized AlbumView instance with custom selection message.
+*/
+MainView::MainView(BRect frame, BMessage *message, uint32 resizing):
+	AlbumView(frame, "Browser", message, resizing, B_PULSE_NEEDED),
+	fNoDataMsg(S_DROPFILES)
 {
 }
+
+
+
+void MainView::Draw(BRect update)
+{
+	if (CountItems() == 0) {
+		// Show splash msg
+		BFont font;
+		GetFont(&font);
+		SetFontSize(16.0);
+		BRect rc = Bounds();
+		FillRect(rc,B_SOLID_LOW);
+		rgb_color c = HighColor();
+		SetHighColor(tint_color(c, B_LIGHTEN_1_TINT));
+		DrawString(fNoDataMsg.String(), BPoint((rc.Width() - StringWidth(fNoDataMsg.String()))/2, rc.Height()/2));
+		SetHighColor(c);		
+		SetFont(&font);
+	}
+	else {
+		
+		AlbumView::Draw(update);
+	}
+}
+
 
 void MainView::MessageReceived(BMessage *message)
 {
  	switch (message->what) {
-		case MSG_ITEM_SELECTED:
-			ItemSelected(message);
-			break;
-		case MSG_ITEM_OPEN:
-			ItemInvoked(message);
-			break;
+ 		case CMD_ITEM_LAUNCH:
+ 			LaunchItem(message);
+ 			break;
 		default:
 			AlbumView::MessageReceived(message);
  	}			
 }
+
+
+
+void MainView::KeyDown(const char *bytes, int32 numBytes)
+{
+    switch (bytes[0]) {
+    	case B_DELETE:
+    		Looper()->PostMessage(CMD_ITEM_REMOVE);
+        	break;
+    	case B_ENTER: 
+    		// Launch preferred app.
+    		LaunchItem(NULL);
+			break;
+        default: 
+        	AlbumView::KeyDown(bytes,numBytes);
+    }
+}
+
+
+
+void MainView::MouseDown(BPoint where)
+{
+	AlbumView::MouseDown(where);
+	Window()->Activate();
+    MakeFocus();
+	
+	int32 buttons = 0;
+	Window()->CurrentMessage()->FindInt32("buttons", &buttons);
+	if (buttons & B_SECONDARY_MOUSE_BUTTON) {
+		AlbumFileItem *item = dynamic_cast<AlbumFileItem*>(ItemAt(IndexOf(&where)));
+		ShowContextMenu(item, fLastWhere);
+	}
+}
+
+
+
 
 /**
 	Gradually removes highlights.
 */
 void MainView::Pulse()
 {
-	AlbumItem *item;
-	if ((item = fAniItems.Get())) {
-		HighlightItem(item, false);
+	for (int i = 0; i < CountItems(); i++) {
+		AlbumItem *item = ItemAt(i);
+		if (item->Highlight() > 0) {
+			item->SetHighlight(item->Highlight() - 0.25);
+			InvalidateItem(item);
+		}
 	}
 }
+
 
 
 /**
@@ -283,6 +339,8 @@ void MainView::Pulse()
 */
 bool MainView::IsItemVisible(AlbumItem *item)
 {
+	if (item == NULL)
+		return false;
 	return (!(Mask() & ITEM_FLAG_MARKED) || (item->Flags() & ITEM_FLAG_MARKED)) 
 		&& ((Mask() & ITEM_FLAG_DIMMED) || !(item->Flags() & ITEM_FLAG_DIMMED));
 }
@@ -295,138 +353,32 @@ void MainView::SortItems()
 		entry_ref ref;
 		for (int i = 0; i < CountItems(); i++) {
 			AlbumFileItem *item = dynamic_cast<AlbumFileItem*>(ItemAt(i));
-			if (!item || !IsItemVisible(item))
+			if (!IsItemVisible(item))
 				continue;
-			if (item->Ref().directory != ref.directory)
-				item->SetFlags(item->Flags() | ITEM_FLAG_SEPARATOR);
-			else
-				item->SetFlags(item->Flags() & ~ITEM_FLAG_SEPARATOR);
+			item->SetFlags(ALBUMITEM_SEPARATOR, item->Ref().directory != ref.directory);
 			ref = item->Ref();
 		}
 	}
 	else 
 		for (int i = 0; i < CountItems(); i++) {
 			AlbumItem *item = ItemAt(i);
-			item->SetFlags(item->Flags() & ~ITEM_FLAG_SEPARATOR);
+			item->SetFlags(ALBUMITEM_SEPARATOR, false);
 		}
 
 }
 
 
-
-void MainView::HighlightItem(AlbumItem *item, bool enabled)
+int32 MainView::GetSelectedRefs(BMessage *message)
 {
-	if (!enabled) {
-			item->SetFlags(item->Flags() & ~ITEM_FLAG_HILIT);
-	}
-	else  {
-		if (fAniItems.Full()) 
-			HighlightItem(fAniItems.Get(), false);
-		if (fAniItems.Put(item))
-			item->SetFlags(item->Flags() | ITEM_FLAG_HILIT);
-	}
-	InvalidateItem(item);
-}
-
-
-
-void MainView::GetSelectedRefs(BMessage *message)
-{
-	AlbumItem *item;
-	for (int i = 0; (item = GetSelection(i)); i++) {
-		AlbumFileItem *fitem = dynamic_cast<AlbumFileItem*>(item);
-		if (fitem)
-			message->AddRef("refs", &fitem->Ref());			
-	}
-}
-
-
-/**
-	An item was clicked.
-*/
-void MainView::ItemSelected(BMessage *message)
-{
-	int32 index = -1;
-	AlbumFileItem *item = NULL;
-	if (message->FindPointer("item", (void**)&item) == B_OK) {
-		// Double-click detected.
-		if (item)
-			be_roster->Launch(&item->Ref());
-		return;		
-	}
-	else if (message->FindInt32("index", &index) == B_OK) {
-		item = dynamic_cast<AlbumFileItem*>(ItemAt(index));
-		int32 buttons = 0;
-		message->FindInt32("buttons", &buttons);
-		if (buttons & B_SECONDARY_MOUSE_BUTTON) {
-			BPoint where;
-			message->FindPoint("where", &where);
-			ShowContextMenu(item, where);
-			return;
+	int32 n = 0;
+	for (int i = 0; i < CountItems(); i++) {
+		AlbumFileItem *item = dynamic_cast<AlbumFileItem*>(ItemAt(i));
+		if (IsItemVisible(item) && item->IsSelected()) {
+			message->AddRef("refs", &item->Ref());			
+			n++;
 		}
 	}
-	MakeFocus(this);
-	// Pass it up to owner.
-	AlbumView::MessageReceived(message);
-}
-
-
-/**
-	Launches the default app associated with an item's file.
-*/
-void MainView::ItemInvoked(BMessage *message)
-{
-    entry_ref ref;
-    if (message->FindRef("refs", &ref) != B_OK)
-    	return;
-	const char *appsig;
-	if (message->FindString("app", &appsig) == B_OK && appsig) {
-		// Does not check app flags if it is argv-only app. 
-		// Works for most native BeOS apps.
-		BMessage msg(B_REFS_RECEIVED);
-		msg.AddRef("refs", &ref);
-		be_roster->Launch(appsig, &msg);
-	}
-	else
-		// No app specified, launch the preferred app.
-		be_roster->Launch(&ref);
-}
-
-
-/**
-	Shows item options menu.
-*/
-void MainView::ShowContextMenu(AlbumFileItem* item, BPoint where)
-{
-    BPopUpMenu *fPopUp = new BPopUpMenu("ItemOptions");
-    if (item) {
-        // Show Location - open the parent directory in Tracker.
-        BMessage *msg;
-        BEntry entry(&item->Ref());
-        BEntry parent;
-        entry.GetParent(&parent);
-        entry_ref ref;
-
-        if (parent.GetRef(&ref) == B_OK) {
-            msg = new BMessage(MSG_ITEM_OPEN);
-            msg->AddRef("refs", &ref);
-            msg->AddString("app", "application/x-vnd.Be-TRAK");
-            fPopUp->AddItem(new BMenuItem(_("Open Folder"), msg));
-        }
-        // Open With - launch a supporting app.
-        BMenu *menu = new OpenWithMenu(_("Open With"B_UTF8_ELLIPSIS), &item->Ref(), MSG_ITEM_OPEN);
-        menu->SetTargetForItems(this);
-        fPopUp->AddItem(menu);
-
-    }
-   // Invoke the popupmenu
-    fPopUp->SetTargetForItems(this);
-	// Must be in async mode for this to work:
-	fPopUp->SetAsyncAutoDestruct(true);
-	ConvertToScreen(&where);
-	// Post messages, async mode - Go() returns ASAP.
-    fPopUp->Go(where, true, false, true);
-	
+	return n;
 }
 
 
@@ -443,38 +395,116 @@ void MainView::ItemDragged(int32 index, BPoint where)
 	AlbumItem *item0 = ItemAt(index);
 	if (!item0)
 		return;	
-	where -= item0->Frame().LeftTop();
 
 	BMessage dragmsg(B_SIMPLE_DATA);
-    int count = 0;
-	AlbumFileItem *item;
-	for (int i = 0; (item = (AlbumFileItem*)GetSelection(i)); i++) {
-		dragmsg.AddRef("refs", &item->Ref());
-		count++;			
-	}
-	// mark the source
 	dragmsg.AddMessenger("messenger", BMessenger(this));
-
-	// Make a bitmap to drag around
-	BBitmap *preview = new BBitmap(item0->Bitmap(), true);
-	preview->Lock();
-	BView canvas(preview->Bounds(), NULL, 0, B_WILL_DRAW);
-	preview->AddChild(&canvas);
-	char buf[10];
-	BPoint p = canvas.Bounds().LeftBottom() + BPoint(2,-4);
-	sprintf(buf,"%d", count);
-	canvas.SetDrawingMode(B_OP_OVER);
-	canvas.SetFontSize(31.0);
-	canvas.SetHighColor(0,0,0);
-	canvas.DrawString(buf, p + BPoint(2,2));
-	canvas.SetHighColor(0,255,0);
-	canvas.DrawString(buf, p);
-	// BViews must not belong to anybody when deleted.
-	canvas.RemoveSelf();
-	//delete canvas;
-	preview->Unlock();
-
-	// Start dragging, the rest will be handled by app_server.
-	DragMessage(&dragmsg, preview, B_OP_BLEND, where);
+	int32 n = GetSelectedRefs(&dragmsg);
+	
+	if (item0->Bitmap() == NULL) 
+		DragMessage(&dragmsg, item0->Frame());
+	else {
+		// Make a bitmap to drag around
+		BBitmap *preview = new BBitmap(item0->Bitmap()->Bounds(),B_RGBA32, true);
+		preview->Lock();
+		BView canvas(preview->Bounds(), NULL, 0, 0);
+		preview->AddChild(&canvas);
+		canvas.SetHighColor(B_TRANSPARENT_COLOR);
+		
+		canvas.FillRect(preview->Bounds());	
+		canvas.SetDrawingMode(B_OP_ALPHA);
+		canvas.SetBlendingMode(B_CONSTANT_ALPHA, B_ALPHA_COMPOSITE);		
+		canvas.SetHighColor(0, 0, 0, 144);
+		canvas.DrawBitmap(item0->Bitmap());		
+		char buf[8];
+		sprintf(buf,"%d", n);
+		canvas.SetHighColor(0,255,0);
+		canvas.SetFontSize(26);
+		canvas.DrawString(buf, canvas.Bounds().LeftBottom());
+		canvas.Sync();
+		// this is a stack object, can't let DragMessage() delete it.
+		canvas.RemoveSelf();
+		preview->Unlock();
+	
+		// Start dragging, the rest will be handled by app_server.
+		where -= item0->Frame().LeftTop();
+		DragMessage(&dragmsg, preview, B_OP_ALPHA, where);
+	}
 }
+
+
+
+/**
+	Launches the default app associated with an item's file.
+*/
+void MainView::LaunchItem(BMessage *message)
+{
+    AlbumFileItem *item = dynamic_cast<AlbumFileItem*>(SelectedItem(0));
+    if (!IsItemVisible(item))
+    	return;    
+	const char *appsig;
+	if (message != NULL && message->FindString("app", &appsig) == B_OK && appsig) {
+		// Does not check app flags if it is argv-only app. 
+		// Works for most native BeOS apps.
+		entry_ref ref;
+		BMessage msg(B_REFS_RECEIVED);
+		if (message->FindRef("refs",&ref) == B_OK)
+			msg.AddRef("refs",&ref);
+		else
+			GetSelectedRefs(&msg);
+		be_roster->Launch(appsig, &msg);
+	}
+	else 
+		// No app specified, launch the preferred app.
+		be_roster->Launch(&item->Ref());
+}
+
+
+/**
+	Shows item options menu.
+*/
+void MainView::ShowContextMenu(AlbumFileItem* item, BPoint where)
+{
+	if (item == NULL)
+		return;
+		
+	// adjust scale
+	where.x *= Zoom();
+	where.y *= Zoom();
+		
+	BPopUpMenu *fPopUp = new BPopUpMenu(_("Item Options"));
+    // Show Location - open the parent directory in Tracker.
+    BMessage *msg;
+    BEntry entry(&item->Ref());
+    BEntry parent;
+    entry.GetParent(&parent);
+    entry_ref ref;
+    if (parent.GetRef(&ref) == B_OK) {
+		msg = new BMessage(CMD_ITEM_LAUNCH);
+        msg->AddRef("refs", &ref);
+        msg->AddString("app", "application/x-vnd.Be-TRAK");
+        BMenuItem *openFolder = new BMenuItem(_("Open Folder"), msg);
+        fPopUp->AddItem(openFolder);
+        openFolder->SetEnabled(CountSelected() == 1);
+    }
+	// Open With - launch a supporting app.
+	BMenu *menu = new OpenWithMenu(_("Open With"B_UTF8_ELLIPSIS), &item->Ref(), CMD_ITEM_LAUNCH);
+	menu->SetEnabled(CountSelected() == 1);
+	menu->SetTargetForItems(this);
+	fPopUp->AddItem(menu);
+	fPopUp->AddSeparatorItem();
+	fPopUp->AddItem(new BMenuItem(_("Mark"), new BMessage(CMD_ITEM_MARK)));
+	fPopUp->AddItem(new BMenuItem(_("Unmark"), new BMessage(CMD_ITEM_UNMARK)));
+	fPopUp->AddItem(new BMenuItem(_("Remove from View"), new BMessage(CMD_ITEM_REMOVE)));
+	fPopUp->AddSeparatorItem();
+	fPopUp->AddItem(new BMenuItem(_("Move to Trash"), new BMessage(CMD_ITEM_TRASH)));
+    fPopUp->SetTargetForItems(this);
+	fPopUp->SetAsyncAutoDestruct(true);
+	ConvertToScreen(&where);
+	// async mode: return ASAP, post messages later
+    fPopUp->Go(where, true, false, true);
+	Window()->Sync();
+    
+}
+
+
 

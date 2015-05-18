@@ -23,37 +23,40 @@ SOFTWARE.
 #define IMAGELOADER_H_
 
 #include <Looper.h>
-#include <Locker.h>
 #include <Entry.h>
 #include <Node.h>
-#include <Query.h>
+#include <Locker.h>
 #include <String.h>
+
+#include <Query.h>
 #include "ObjectList.h"
 
-class BMessage;
+#define IMAGELOADER_CACHE_LIMIT 4096
 
 enum {
 	CMD_LOADER_DELETE = 'ldRm',
 	// Replies.
 	MSG_LOADER_UPDATE = 'ldUp',
-	MSG_LOADER_DONE= 'ldEn',
+	MSG_LOADER_DONE= 'ldDn',
+	MSG_LOADER_DONE_BUT_RUNNING = 'ldDR',
 	MSG_LOADER_DELETED = 'ldDl',
 };
 
+
 enum {
-	LOAD_STATS = 1,
-	LOAD_ATTRIBUTES = 2,
-	LOAD_DATA = 4,
+	LOADER_READ_TAGS = 1,
+	LOADER_READ_EXIF_THUMB = 2,
+	LOADER_RELOAD_EXISTING = 4,
+	LOADER_ONLY_IMAGES = 8
 };
 
+#define MAX_QUERIES 10
 
 /// Node Monitor Cache Item
 struct file_item {
 	node_ref nodref;
 	entry_ref entref;
 	file_item(node_ref &node);
-	static int node_cmp(const file_item *a, const file_item *b);
-	static file_item *ref_eq(file_item *item, void *param);
 };
 
 
@@ -65,34 +68,38 @@ class ImageLoader : public BLooper
 	~ImageLoader();
 	virtual void MessageReceived(BMessage *message);
 	void Stop();
-	bool IsBusy();
+	bool IsRunning();
 	void SetAttrNames(const char *attrnames);
 	void SetLoadOptions(uint32 flags);
 	void SetThumbnailSize(float width, float height);
-	
-	virtual status_t HandleRef(entry_ref *ref);
-	virtual status_t HandleFile(entry_ref *ref);
-	virtual status_t HandleDirectory(entry_ref *ref);
-    virtual status_t HandleQuery(const char *predicate, BVolume *volume);
+	virtual void RefsReceived(BMessage *message);
+	virtual void DeleteReceived(BMessage *message);	
+	static BBitmap *ReadImagePreview(entry_ref *ref, float width, float height, BRect *originalBounds = NULL);
+	static BBitmap *ReadThumbnail(BNode *node, const char *attrname);
 	
 	private:
 
-	virtual void RefsReceived(BMessage *message);
-	virtual status_t LoadFile(entry_ref *ref, BMessage *reply, uint32 mode = 0xff);
-	status_t ReadAttributes(BNode *node, BMessage *attr);
-	BBitmap *ReadThumbnail(BNode *node, const char *attrname);
-	BBitmap *MakeImagePreview(entry_ref *ref, float width, float height, BRect *originalBounds = NULL);
 	void NodeMonitorChange(BMessage *message);
-	void DeleteReceived(BMessage *message);
+	bool AddCacheItem(entry_ref &ref, node_ref &noderef);
+	bool RemoveCacheItem(entry_ref *ref);
+	status_t HandleRef(entry_ref *ref);
+	status_t HandleFile(entry_ref *ref);
+	status_t HandleDirectory(entry_ref *ref);
+	status_t HandleTrackerQuery(BNode *node);
+	//status_t LoadFile(entry_ref *ref, BMessage *reply, uint32 mode = 0xff);
+	status_t ReadData(entry_ref *ref, BMessage *reply);
+	status_t ReadStats(entry_ref *ref, BMessage *reply);
+	status_t ReadAttributes(BNode *node, BMessage *reply);
 	
 	BObjectList<file_item> fItems;
-	BLocker fLocker;
+	BObjectList<BQuery> fQueries;
 	bool fRunning;
-	BQuery fQuery;
+	BLocker fStopLocker;
+	uint32 fLoadOptions;
 	int32 fTotal, fDone;
 	float fThumbWidth, fThumbHeight;
 	BString fReadAttr, fWriteAttr;
-	uint32 fLoadOptions;
+	
 };
 
 #endif

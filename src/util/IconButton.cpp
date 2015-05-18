@@ -26,7 +26,7 @@ SOFTWARE.
 #include <algorithm>
 
 IconButton::IconButton(BRect frame, const char *name, const char *label, BBitmap *iconOff, BBitmap *iconOn, BMessage *message, uint32 resizing, uint32 flags):
-	BButton(frame, name, label, message, resizing, flags | B_WILL_DRAW),
+	BButton(frame, name, label, message, resizing, flags | B_WILL_DRAW ),
 	fIconOn(iconOn),
 	fIconOff(iconOff)
 {

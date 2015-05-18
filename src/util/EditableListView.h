@@ -47,10 +47,11 @@ class EditableListView : public BOutlineListView
 	public:
 	
 	EditableListView(BRect frame, const char *name, list_view_type type = B_SINGLE_SELECTION_LIST, uint32 resizingMode = B_FOLLOW_LEFT | B_FOLLOW_TOP,
-                 uint32 flags = B_WILL_DRAW | B_FRAME_EVENTS | B_NAVIGABLE);
+                 uint32 flags = 0);
 	virtual void DetachedFromWindow();
 	virtual void KeyDown(const char *bytes, int32 numBytes);
 	virtual void MakeEmpty();
+	virtual void MakeFocus(bool focused = true);
 	virtual void SelectionChanged();
 	virtual bool ConfirmEdit(BMessage *message);
 	virtual BView *NewEditBox(int32 index);

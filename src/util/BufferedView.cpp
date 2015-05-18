@@ -55,9 +55,7 @@ BufferedView::BufferedView(BRect rect, const char *name, uint32 mode, uint32 fla
 	fBuffering(false),
 	fAsync(async),
 	fBuffer(NULL),
-	fBufferView(NULL),
-	fGranularity(128)
-	
+	fBufferView(NULL)
 {
 	fBackColor = ViewColor();
 }
@@ -106,9 +104,10 @@ void BufferedView::Draw(BRect update)
 		   DrawBitmap(fBuffer, source, update);
 		fBuffer->Unlock();
 	}
-	else 
+	else  {
 		// no double-buffering
 		DrawOffscreen(this, update);
+	}
 }
 
 
@@ -121,19 +120,21 @@ void BufferedView::Draw(BRect update)
 	on demand. This is done in oversized chunks (tiles) to minimise
 	memory allocation operations.
 */
+
+
 void BufferedView::CreateBuffer(int32 width, int32 height)
 {	
 	DeleteBuffer();
 	// allocate a bit more to allow for window resize.
-	int32 w = (width / 128 + 1) * 128;
-	int32 h = (height / 128 + 1) * 128;
+	int32 w = (width / 256 + 1) * 256;
+	int32 h = (height / 256 + 1) * 256;
 	fBuffer = new BBitmap(BRect(0, 0, w, h), B_RGB32, true);
 	if (fBuffer) {
 		fBuffer->Lock();
 		fBufferView->SetLowColor(fBackColor);
         fBuffer->AddChild(fBufferView);
 		fBuffer->Unlock();
-	}	
+	}
 }
 
 /**
@@ -167,6 +168,10 @@ void BufferedView::SetBuffering(bool enabled)
 			fBufferView = new BView(Bounds(), "OffscreenBitmap", 0, 0);
 			fBufferView->MoveTo(0,0);
 			fBufferView->SetViewColor(fBackColor);
+			BFont font;
+			GetFont(&font);
+			fBufferView->SetFont(&font);
+			
 		}
 		CreateBuffer(Bounds().IntegerWidth(), Bounds().IntegerHeight());
 	}
@@ -175,6 +180,7 @@ void BufferedView::SetBuffering(bool enabled)
 	    delete fBufferView;
 	    fBufferView = NULL;
 		SetViewColor(fBackColor);
+		Invalidate();
 	}
 }
 

@@ -24,11 +24,11 @@ SOFTWARE.
 \brief User Preferences Dialog
 */
 
+#include <NameValueItem.h>
+#include <stdio.h>
 #include "App.h"
 #include "SettingsWindow.h"
-
-#include <stdio.h>
-#include <NameValueItem.h>
+#include "ImageLoader.h"
 
 SettingsWindow::SettingsWindow(BRect frame, const char *title):
         BWindow(frame, title, B_FLOATING_WINDOW_LOOK, B_NORMAL_WINDOW_FEEL,
@@ -41,66 +41,94 @@ SettingsWindow::SettingsWindow(BRect frame, const char *title):
 	// Font Sensitivity
     font_height fh;
     root->GetFontHeight(&fh);
-    float h = fh.ascent + fh.descent + fh.leading;
-	BRect b = root->Bounds().InsetBySelf(12, 12);
+    float h = 2*fh.ascent + fh.descent + fh.leading;
+	BRect b = root->Bounds().InsetBySelf(10, 10);
 	
     // Attributes Menu
     b.bottom = b.top + h;
-    fReadAttr = new BTextControl(b, "Attributes", _("Thumbnail attributes"), "IPRO:thumbnail GRAFX:Thumbnail", NULL);
+    fReadAttr = new BTextControl(b, NULL, _("Thumbnail attributes"), "IPRO:thumbnail GRAFX:Thumbnail", NULL);
     fReadAttr->SetDivider(root->StringWidth(fReadAttr->Label()) + 8);
+#ifdef __HAIKU__    
+	fReadAttr->SetToolTip(S_THUMBNAIL_NAME_TIP);
+#endif    
     root->AddChild(fReadAttr);
 
     // Thumbnail Size Menu
-    fSizeMenu = new BPopUpMenu(_("Sizes"));
-    fSizeMenu->AddItem(new BMenuItem("32x32", NULL));
-    fSizeMenu->AddItem(new BMenuItem("56x48", NULL));
-    fSizeMenu->AddItem(new BMenuItem("64x64", NULL));
-    fSizeMenu->AddItem(new BMenuItem("96x64", NULL));
-    fSizeMenu->AddItem(new BMenuItem("128x96", NULL));
-    fSizeMenu->AddItem(new BMenuItem("200x160", NULL));
+    fSizeMenu = new BPopUpMenu(_("Default Size"));
+    fSizeMenu->ResizeToPreferred();
+    fSizeMenu->AddItem(new BMenuItem(_("Small"), NULL));
+    fSizeMenu->AddItem(new BMenuItem(_("Medium"), NULL));
+    fSizeMenu->AddItem(new BMenuItem(_("Large"), NULL));
+    fSizeMenu->AddItem(new BMenuItem(_("XLarge"), NULL));
     fSizeMenu->SetTargetForItems(this);
-    b.OffsetBy(0, 2*h);
-	BMenuField *menuField = new BMenuField(b, "Dimensions", _("Size for new thumbnails"), fSizeMenu);
+    fSizeMenu->ResizeToPreferred();
+    b.OffsetBy(0, h);
+	BMenuField *menuField = new BMenuField(b, NULL, _("Size for new thumbnails"), fSizeMenu);
+#ifdef __HAIKU__    
+	menuField->SetToolTip(S_THUMBNAIL_SIZE_TIP);
+#endif
 	menuField->SetDivider(root->StringWidth(menuField->Label()) + 8);
+    menuField->ResizeToPreferred();
     root->AddChild(menuField);
 
-    fFormatMenu = new BPopUpMenu(_("Format"));
-    fFormatMenu->AddItem(new BMenuItem("GIF", NULL));
+    fFormatMenu = new BPopUpMenu(_("Default Format"));
     fFormatMenu->AddItem(new BMenuItem("JPEG", NULL));
     fFormatMenu->AddItem(new BMenuItem("PNG", NULL));
-    fFormatMenu->AddItem(new BMenuItem("PPM", NULL));
     fFormatMenu->AddItem(new BMenuItem("TGA", NULL));
     fFormatMenu->AddItem(new BMenuItem("BMP", NULL));
     fFormatMenu->AddItem(new BMenuItem("TIFF", NULL));
+    fFormatMenu->AddItem(new BMenuItem("GIF", NULL));
     fFormatMenu->SetTargetForItems(this);
-    b.OffsetBy(0, 2*h);
-	menuField = new BMenuField(b, "Format", _("Write thumbnails to attributes as"), fFormatMenu);
+    fFormatMenu->ResizeToPreferred();
+    b.OffsetBy(0, h);
+	menuField = new BMenuField(b, NULL, _("Write thumbnails to attributes as"), fFormatMenu);
 	menuField->SetDivider(root->StringWidth(menuField->Label()) + 8);
+	menuField->ResizeToPreferred();
     root->AddChild(menuField);
 	
 
 	// Extract Tags
-	b.OffsetBy(0, 2 * h);
-    fExtractTags = new BCheckBox(b, "ExtractTags", _("Read JPEG metadata"), new BMessage(MSG_EXTRACTTAGS_CHECK));
+	b.OffsetBy(0, h);
+    fExtractTags = new BCheckBox(b, NULL, _("Read JPEG metadata"), new BMessage(MSG_EXTRACTTAGS_CHECK));
+    fExtractTags->ResizeToPreferred();
 	root->AddChild(fExtractTags);
 
-	b.OffsetBy(0, 2 * h);
-    fExifThumb = new BCheckBox(b, "ExifThumb", _("Read EXIF thumbnail"), NULL);
+	b.OffsetBy(0, h);
+    fExifThumb = new BCheckBox(b, NULL, _("Read EXIF thumbnails"), NULL);
+    fExifThumb->ResizeToPreferred();
 	root->AddChild(fExifThumb);
 
+	b.OffsetBy(0, h);
+    fReloadExisting = new BCheckBox(b, NULL, _("Reload existing"), NULL);
+    fReloadExisting->ResizeToPreferred();
+#ifdef __HAIKU__    
+    fReloadExisting->SetToolTip(S_RELOAD_TIP);
+#endif
+	root->AddChild(fReloadExisting);
+
+	b.OffsetBy(0, h);
+    fOnlyImages = new BCheckBox(b, NULL, _("Load only images"), NULL);
+    fOnlyImages->ResizeToPreferred();
+	root->AddChild(fOnlyImages);
+
 	// Display Options
-	b.OffsetBy(0, 2 * h);
-    fAntiFlicker = new BCheckBox(b, "AntiFlicker", _("Reduce flickering"), NULL);
+	b.OffsetBy(0, h);
+    fAntiFlicker = new BCheckBox(b, NULL, _("Reduce flickering"), NULL);
+    fAntiFlicker->ResizeToPreferred();
+#ifdef __HAIKU__    
+    fAntiFlicker->SetToolTip(S_FLICKER_TIP);
+#endif
 	root->AddChild(fAntiFlicker);
 
     // Apply Button
-	b.OffsetTo(b.right-80, root->Bounds().Height() - 3 * h);
-    fApplyButton = new BButton(b, "OkButton", _("Save"), new BMessage(CMD_DONE));
+	b.OffsetBy(0, 1.5*h);
+    fApplyButton = new BButton(b, NULL, _("Save"), new BMessage(CMD_DONE));
 	fApplyButton->ResizeToPreferred();
     root->AddChild(fApplyButton);
 	fApplyButton->MakeDefault(true);
-
     AddChild(root);
+    
+    ResizeTo(Frame().Width(),b.bottom+10);
 }
 
 
@@ -144,21 +172,30 @@ void SettingsWindow::MessageReceived(BMessage *message)
 */
 void SettingsWindow::Restore(BMessage *message)
 {
-	message->PrintToStream();
-    // Attribute names.
+	// Thumbnail attributes, space-separated.
     const char *val;
     if (message->FindString("thumb_attr", &val) == B_OK) {
         fReadAttr->SetText(val);
     }
-    // Mark an item with the right label - kind of lame.
+
+    // Thumbnail size category - kind of lame.
     float width = 0, height = 0;
     if (message->FindFloat("thumb_width", &width) == B_OK && message->FindFloat("thumb_height", &height) == B_OK) {
-        char label[16] = "";
-        sprintf(label, "%0.0fx%0.0f", width, height);
-        BMenuItem *item = fSizeMenu->FindItem(label);
-        if (item)
-            item->SetMarked(true);
+		int i;
+		if (width >= 240)
+			i = 3;
+		else if (width >= 160)
+			i = 2;
+		else if (width >= 120)
+			i = 1;
+		else 
+			i = 0;
+		BMenuItem *item = fSizeMenu->ItemAt(i);
+		if (item)
+			item->SetMarked(true);
     }
+   	
+   	// Thumbnail format 
     if (message->FindString("thumb_format", &val) == B_OK) {
         BMenuItem *item = fFormatMenu->FindItem(val);
         if (item)
@@ -166,14 +203,18 @@ void SettingsWindow::Restore(BMessage *message)
     }
     
     // Read Mode
-    int32 options = 0;
+    int32 options;
     if (message->FindInt32("load_options", &options) == B_OK) {
-		if (options & 1)
+		if (options & LOADER_READ_TAGS)
         	fExtractTags->SetValue(1);
-		if (options & 2)
+		if (options & LOADER_READ_EXIF_THUMB)
         	fExifThumb->SetValue(1);
+		if (options & LOADER_RELOAD_EXISTING)
+        	fReloadExisting->SetValue(1);
+		if (options & LOADER_ONLY_IMAGES)
+        	fOnlyImages->SetValue(1);
     }
-	fExifThumb->SetEnabled(fExtractTags->Value());
+	fExifThumb->SetEnabled(fExtractTags->Value() == 1);
 	
     if (message->FindInt32("display_options", &options) == B_OK) {
 		if (options & 1)
@@ -189,26 +230,40 @@ void SettingsWindow::Restore(BMessage *message)
 void SettingsWindow::Save()
 {
 	BMessage msg(CMD_UPDATE_PREFS);
-	// Read Attributes
+
+	// Thumbnail attributes, space-separated.
 	msg.AddString("thumb_attr", fReadAttr->Text());
-	// Thumbnail Dimensions (from labels, kind of lame).
-	float width = 0, height = 0;
-	if (fSizeMenu->FindMarked()) {
-	    if (sscanf(fSizeMenu->FindMarked()->Label(), "%fx%f", &width, &height) == 2) {
-	        msg.AddFloat("thumb_width", width);
-	        msg.AddFloat("thumb_height", height);
-	    }
+	
+    // Thumbnail size category - kind of lame.
+	BMenuItem *marked;
+    if ((marked = fSizeMenu->FindMarked())) {
+		float width, height;
+    	int i = fSizeMenu->IndexOf(marked);
+    	if (i >= 3)
+    		width = height = 240;
+    	else if (i == 2)
+    		width = height = 160;
+    	else if (i == 1)
+    		width = height = 120;
+    	else
+    		width = height = 64;
+		msg.AddFloat("thumb_width", width);
+		msg.AddFloat("thumb_height", height);
 	}
-	if (fFormatMenu->FindMarked()) {
-	        msg.AddString("thumb_format", fFormatMenu->FindMarked()->Label());
-	}
+   	// Thumbnail format 
+	if ((marked = fFormatMenu->FindMarked())) 
+		msg.AddString("thumb_format", marked->Label());
 
 	// Read Mode
 	int32 options = 0;
 	if (fExtractTags->Value())
-		options += 1;
+		options |= LOADER_READ_TAGS;
 	if (fExifThumb->Value())
-		options += 2;
+		options |= LOADER_READ_EXIF_THUMB;
+	if (fReloadExisting->Value())
+		options |= LOADER_RELOAD_EXISTING;
+	if (fOnlyImages->Value())
+		options |= LOADER_ONLY_IMAGES;
 	msg.AddInt32("load_options", options);
 
 	options = fAntiFlicker->Value();

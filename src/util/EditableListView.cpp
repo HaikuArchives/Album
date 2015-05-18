@@ -22,12 +22,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 SOFTWARE.
 */
+
 #include <Debug.h>
 #include <EditableListView.h>
 
 
 ListViewEditBox::ListViewEditBox(BRect frame, const char *name, const char *text, uint32 resizingMode, uint32 flags):
-	BTextView(frame, name, frame.OffsetToSelf(0,0), resizingMode, flags)
+	BTextView(frame, name, frame.OffsetToSelf(0,0), resizingMode, flags | B_WILL_DRAW)
 {
 	DisallowChar(B_ESCAPE);
 	DisallowChar(B_TAB);
@@ -42,7 +43,7 @@ ListViewEditBox::ListViewEditBox(BRect frame, const char *name, const char *text
 void ListViewEditBox::AttachedToWindow()
 {
 	SelectAll();
-	MakeFocus();
+	//MakeFocus();
 }
 
 
@@ -59,7 +60,8 @@ void ListViewEditBox::KeyDown(const char *bytes, int32 numBytes)
 	    case B_ESCAPE:
 	    case B_UP_ARROW:
 	    case B_DOWN_ARROW:
-	        Parent()->KeyDown(bytes, numBytes);
+	    	if (IsFocus())
+	        	Parent()->KeyDown(bytes, numBytes);
 	        return;
 	    default:
 	        BTextView::KeyDown(bytes, numBytes);
@@ -71,10 +73,11 @@ void ListViewEditBox::KeyDown(const char *bytes, int32 numBytes)
 
 
 EditableListView::EditableListView(BRect frame, const char *name, list_view_type type, uint32 resizing, uint32 flags):
-	BOutlineListView(frame, name, type, resizing, flags),
+	BOutlineListView(frame, name, type, resizing, flags | B_WILL_DRAW),
 	fEditBox(NULL)
 {
 }
+
 
 void EditableListView::DetachedFromWindow()
 {
@@ -82,6 +85,9 @@ void EditableListView::DetachedFromWindow()
 }
 
 
+/**
+	Std Kbd Navigation
+*/	
 void EditableListView::KeyDown(const char *bytes, int32 numBytes)
 {
     switch (bytes[0]) {
@@ -94,8 +100,9 @@ void EditableListView::KeyDown(const char *bytes, int32 numBytes)
 					Invoke(&msg);
 				SetEditedItem(-1);
 			}
-			else
+			else {
 				SetEditedItem(CurrentSelection());
+			}
 			break;
 	    case B_ESCAPE:
 			SetEditedItem(-1);
@@ -106,11 +113,28 @@ void EditableListView::KeyDown(const char *bytes, int32 numBytes)
 }
 
 
+/**
+	Removes all items, cancels edit.
+*/
 void EditableListView::MakeEmpty()
 {
 	SetEditedItem(-1);
 	BOutlineListView::MakeEmpty();
 }
+
+
+
+
+void EditableListView::MakeFocus(bool focused)
+{
+	if (IsFocus() != focused)
+	{
+		BOutlineListView::MakeFocus(focused);
+		Invalidate();
+	}	
+}
+
+
 
 
 void EditableListView::SelectionChanged()
@@ -152,6 +176,7 @@ void EditableListView::SetEditedItem(int32 index)
 	//fEditBox = FindView("EditBox");
 	if (fEditBox) {
 		RemoveChild(fEditBox);
+		fEditBox->RemoveSelf();
 		delete fEditBox;
 		fEditBox = NULL;
 		// return focus here
@@ -162,6 +187,7 @@ void EditableListView::SetEditedItem(int32 index)
 		if (edit) {
 			fEditBox = edit;
 			AddChild(fEditBox);
+			fEditBox->MakeFocus();
 		}
 	}
 }

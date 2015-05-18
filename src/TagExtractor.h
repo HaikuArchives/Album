@@ -14,7 +14,7 @@ class TagExtractor
     virtual int Read();
     virtual int Read(void *buf, int size);
     virtual void TagExtracted(int category, int id, const char *name, int type, void *value, int size);
-    virtual int Extract(BMessage *tags = NULL);
+    virtual status_t Extract(BMessage *tags, uint32 *features = NULL);
 
     private:
     
