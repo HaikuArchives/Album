@@ -53,7 +53,6 @@ class BufferedView : public BView
 	BBitmap *fBuffer;
 	BView *fBufferView;
 	rgb_color fBackColor;
-	const int16 fGranularity;
 };
 
 #endif

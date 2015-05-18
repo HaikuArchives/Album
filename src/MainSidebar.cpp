@@ -1,4 +1,3 @@
-#include <Debug.h>
 #include <Window.h>
 #include <SplitView.h>
 #include <OutlineListView.h>
@@ -6,14 +5,14 @@
 #include <TextControl.h>
 #include <StringView.h>
 #include <String.h>
-#include <stdio.h>
 #include <NameValueItem.h>
 #include <EditableListView.h>
+#include <MenuItem.h>
 #include <RegExp.h>
-#include "App.h"
-#include "MainSidebar.h"
 #include <PopUpMenu.h>
-
+#include "MainSidebar.h"
+#include "MainWindow.h"
+#include "App.h"
 
 
 /**
@@ -26,26 +25,6 @@ class TagList: public EditableListView
 	TagList(BRect frame, uint32 resizing);
 	virtual bool InitiateDrag(BPoint point, int32 index, bool wasSelected);
 };
-
-
-TagList::TagList(BRect frame, uint32 resizing):
-	EditableListView(frame, "Tags", B_MULTIPLE_SELECTION_LIST, resizing)
-{
-}
-
-bool TagList::InitiateDrag(BPoint point, int32 index, bool wasSelected)
-{
-	NameValueItem *item = dynamic_cast<NameValueItem*>(ItemAt(index));
-	// Dragging selected items reqires two clicks!
-	if (item /*&& wasSelected*/ ) {
-		BMessage msg(MSG_TAG_DRAGGED);
-		msg.AddString("name", item->Name());
-		msg.AddString("value", item->Value());
-		DragMessage(&msg, ItemFrame(index));
-		return true;		
-	}
-	return false;
-}
 
 
 /**
@@ -67,8 +46,33 @@ class AttributeList: public EditableListView
 };
 
 
+
+
+
+TagList::TagList(BRect frame, uint32 resizing):
+	EditableListView(frame, "Tags", B_MULTIPLE_SELECTION_LIST, resizing, B_FRAME_EVENTS)
+{
+}
+
+bool TagList::InitiateDrag(BPoint point, int32 index, bool wasSelected)
+{
+	NameValueItem *item = dynamic_cast<NameValueItem*>(ItemAt(index));
+	// Dragging selected items reqires two clicks!
+	if (item /*&& wasSelected*/ ) {
+		BMessage msg(MSG_TAG_DRAGGED);
+		msg.AddString("name", item->Name());
+		msg.AddString("value", item->Value());
+		DragMessage(&msg, ItemFrame(index));
+		return true;		
+	}
+	return false;
+}
+
+
+
+
 AttributeList::AttributeList(BRect frame, uint32 resizing):
-	EditableListView(frame, "Attributes", B_MULTIPLE_SELECTION_LIST, resizing)
+	EditableListView(frame, "Attributes", B_MULTIPLE_SELECTION_LIST, resizing, B_FRAME_EVENTS)
 {
 }
 
@@ -76,12 +80,12 @@ AttributeList::AttributeList(BRect frame, uint32 resizing):
 void AttributeList::MessageReceived(BMessage *message)
 {
 	switch (message->what) {
-		case MSG_ATTR_CHANGED:
-			if (!IsEditing()) {
-				int32 index = -1;
-				message->FindInt32("index", &index);
-				SetEditedItem(index);
-			}
+		case MSG_TAG_DRAGGED:
+			// a bit of back'n'forth here...
+			message->what = CMD_TAG_COPY;
+			// makes a copy, so no worries
+			Looper()->PostMessage(message);
+			break;
 		default:
 			EditableListView::MessageReceived(message);
 	}
@@ -105,6 +109,10 @@ void AttributeList::MouseDown(BPoint where)
 			BListView::MouseDown(where);
     
 }
+
+
+
+
 
 /**
 	Starts edit.
@@ -149,7 +157,7 @@ void AttributeList::ShowContextMenu(BPoint where)
 	    BPopUpMenu *fPopUp = new BPopUpMenu("AttributeOptions");
 	    if (CurrentSelection() >= 0) {
 		    //fPopUp->AddSeparatorItem();
-		    fPopUp->AddItem(new BMenuItem(_("Delete"), new BMessage(MSG_ATTR_DELETE)));
+		    fPopUp->AddItem(new BMenuItem(_("Delete"), new BMessage(CMD_ATTR_REMOVE)));
 	    }
 	    // Invoke the popupmenu
 	    fPopUp->SetTargetForItems(this);
@@ -262,6 +270,9 @@ void UpdateList(BOutlineListView *list, BObjectList<NameValueItem> *fields, BObj
 }
 
 
+/**
+	Packs selected list items into a message.
+*/
 void GetSelectedFields(BOutlineListView *list, BMessage *fields)
 {
 	int32 selected;
@@ -278,7 +289,7 @@ void GetSelectedFields(BOutlineListView *list, BMessage *fields)
 
 
 MainSidebar::MainSidebar(BRect frame, AlbumView* main, uint32 resizing):
-	BView(frame, "Sidebar", resizing, B_NAVIGABLE_JUMP | B_PULSE_NEEDED),
+	BView(frame, "Sidebar", resizing, B_PULSE_NEEDED),
 	fMain(main),
 	fTags(50, true),
 	fAttrs(20, true),
@@ -286,38 +297,52 @@ MainSidebar::MainSidebar(BRect frame, AlbumView* main, uint32 resizing):
 {
 	SetViewColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 
-	BRect rect(4,2,frame.Width()-2,22);
+	// Font Sensitivity
+    font_height fh;
+    GetFontHeight(&fh);
+    float h = 1.25*fh.ascent + fh.descent + fh.leading;
+	
+	BRect rect(4,2,frame.Width()-2, h+4);
 	fFName = new BTextControl(rect, "FileName", _("Name"), "", new BMessage(MSG_NAME_CHANGED), B_FOLLOW_LEFT_RIGHT);
-	fFName->SetDivider(StringWidth(fFName->Label())+4);
+	fFName->SetDivider(StringWidth(fFName->Label())+6);
+#ifdef __HAIKU__
+	fFName->SetToolTip(S_RENAME_TIP);
+#endif	
 	AddChild(fFName);
 	
-	rect.OffsetBy(0,18);
+	rect.OffsetBy(0,h+6);
 	fFSize = new BStringView(rect,"FileSize", NULL);
 	AddChild(fFSize);
 
-	rect.OffsetBy(0,18);
+	rect.OffsetBy(0,h);
 	fCTime = new BStringView(rect,"CTime", NULL);
 	AddChild(fCTime);
 
-	rect.OffsetBy(0,18);
+	rect.OffsetBy(0,h);
 	fMTime = new BStringView(rect,"MTime", NULL);
 	AddChild(fMTime);
 	
-	rect = Bounds();
-	rect.top += 80;
-	SplitView* view = new SplitView(rect, "Sidebar", B_VERTICAL, B_FOLLOW_ALL_SIDES);
+	BRect r = Bounds();
+	r.SetLeftTop(BPoint(0,rect.bottom + 2));
+	SplitView* view = new SplitView(r, NULL, B_VERTICAL, B_FOLLOW_ALL_SIDES);
 		
 	rect = view->Bounds();
 	rect.right -= B_V_SCROLL_BAR_WIDTH;
-	rect.bottom *= 0.75;
+	rect.bottom *= 0.6;
 
 	fTagList = new TagList(rect, B_FOLLOW_ALL);
 	fTagList->SetSelectionMessage(new BMessage(MSG_TAG_SELECTED));
-	view->AddChild(new BScrollView("Scroller", fTagList, B_FOLLOW_LEFT_RIGHT, 0 , false, true, B_PLAIN_BORDER));
+#ifdef __HAIKU__    
+	fTagList->SetToolTip(S_TAGS_TIP);
+#endif	
+	view->AddChild(new BScrollView(NULL, fTagList, B_FOLLOW_LEFT_RIGHT, 0 , false, true, B_PLAIN_BORDER));
 
 	fAttrList = new AttributeList(rect, B_FOLLOW_ALL);
 	fAttrList->SetInvocationMessage(new BMessage(MSG_ATTR_CHANGED));
-	view->AddChild(new BScrollView("Scroller", fAttrList, B_FOLLOW_ALL, 0 , false, true, B_PLAIN_BORDER));
+#ifdef __HAIKU__    
+	fAttrList->SetToolTip(S_ATTRS_TIP);
+#endif
+	view->AddChild(new BScrollView(NULL, fAttrList, B_FOLLOW_ALL, 0 , false, true, B_PLAIN_BORDER));
 	
 	AddChild(view);
 	
@@ -325,20 +350,13 @@ MainSidebar::MainSidebar(BRect frame, AlbumView* main, uint32 resizing):
 }
 
 
-void MainSidebar::AttachedToWindow()
-{
-	fAttrList->SetTarget(fAttrList);
-}
+
 
 /**
 	Shows pending updates.
 */
 void MainSidebar::Pulse()
 {
-	static int anistep = 0;
-	if (anistep++%2)
-		// halve the update rate
-		return;
 	if (fUpdateStats || fUpdateTags || fUpdateAttrs) {
 		Window()->DisableUpdates();
 		ShowSummary();
@@ -346,6 +364,11 @@ void MainSidebar::Pulse()
 	}
 }
 
+
+
+/**
+	Removes all content.
+*/
 void MainSidebar::Clear()
 {
 	if (fUpdateStats) {
@@ -361,8 +384,14 @@ void MainSidebar::Clear()
 	}
 }
 
+
+
+/**
+	Calculates selection summary.
+*/
 int MainSidebar::ShowSummary()
 {
+
 	char fname[B_FILE_NAME_LENGTH] = "";	
 	off_t fsize = 0;
 	time_t ctime = 0, mtime = 0;
@@ -370,12 +399,13 @@ int MainSidebar::ShowSummary()
 	Clear();
 	int count = 0;
 	for (int i = 0; i < fMain->CountItems(); i++) {
-		AlbumFileItem *item = dynamic_cast<AlbumFileItem*>(fMain->GetSelection(i));
-		if (!item)
+		AlbumFileItem *item = dynamic_cast<AlbumFileItem*>(fMain->ItemAt(i));
+		if (!fMain->IsItemVisible(item) || !item->IsSelected())
 			continue;
 		if (fUpdateStats) {
 			BString s = fname;
 			merge_filenames(s.String(), item->Ref().name, fname);
+			// min,max times
 			fsize += item->fFSize;
 			if (item->fCTime > ctime)
 				ctime = item->fCTime;
@@ -390,39 +420,39 @@ int MainSidebar::ShowSummary()
 	}
 	
 	if (fUpdateStats) {
+		char s[32];
+
 		fFName->SetText(fname);
-		fFName->SetEnabled(count);
-
-		char s[50];
-		sprintf(s, _("Size %.1f KB"), 1.0 * fsize / 1024);
-		fFSize->SetText(s);
-
-		BString text = _("Created ");
-		if (ctime) {
-			strftime(s, 24, _("%x %X"), localtime (&ctime));	
-			text += s;
-		}
-		fCTime->SetText(text.String());
+		fFName->SetEnabled(count > 0);
 		
-		text = _("Modified ");
-		if (mtime) {
-			strftime(s, 24, _("%x %X"), localtime (&mtime));	
-			text += s;
+		BString sizeText(_("Size "));	
+		App::FormatFileSize(s, sizeof(s)-1, (long)fsize);
+		sizeText += s;
+		fFSize->SetText(sizeText.String());
+
+		BString createdText(_("Created "));
+		if (ctime) {
+			App::FormatTimestamp(s, sizeof(s)-1, ctime);
+			createdText += s;
 		}
-		fMTime->SetText(text.String());
+		fCTime->SetText(createdText.String());
+		
+		BString modifiedText(_("Modified "));
+		if (mtime) {
+			App::FormatTimestamp(s, sizeof(s)-1, mtime);
+			modifiedText += s;
+		}
+		fMTime->SetText(modifiedText.String());
+
 		fUpdateStats = false;
 		
-		// just a test
-		fFName->Invalidate();
-		fFSize->Invalidate();
-		fCTime->Invalidate();
-		fMTime->Invalidate();
-		
 	}
+
 	if (fUpdateTags) {
 		UpdateList(fTagList, &fTags, &fGroups);
 		fUpdateTags = false;
 	}
+
 	if (fUpdateAttrs) {
 		UpdateList(fAttrList, &fAttrs, NULL);
 		fUpdateAttrs = false;

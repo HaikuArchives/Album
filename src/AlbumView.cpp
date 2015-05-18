@@ -1,23 +1,51 @@
-#include "AlbumView.h"
-#include <LayoutPlan.h>
-#include <ScrollBar.h>
+/**
+Copyright (c) 2006-2015 by Matjaz Kovac
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of 
+this software and associated documentation files (the "Software"), to deal in 
+the Software without restriction, including without limitation the rights to 
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do 
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all 
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+SOFTWARE.
+
+\file AlbumView.cpp
+\brief Generic Thumbnail Browser
+*/
+
+#define DEBUG 1
+#include <Debug.h>
 #include <Window.h>
+#include <ScrollBar.h>
+#include <LayoutPlan.h>
+#include "AlbumView.h"
 
 
 
 AlbumView::AlbumView(BRect frame, const char *name, BMessage *message, uint32 resizing, uint32 flags): 
 	BufferedView(frame, name, resizing, flags | B_WILL_DRAW | B_FRAME_EVENTS, true),
 	BInvoker(message, NULL),
-	fPage(0,0,10,10),
 	fItems(20, true),
-	fSelection(20, false),
 	fOrderBy(NULL),
+	fPage(0,0,10,10),
 	fZoom(1.0),
-	fLastSelected(-1),
-	fColumns(0),
-	fDoubleClick(false),
 	fMask(0),
-	fNoDataMsg("Drop files here.")
+	fColumns(0),
+	fLastSelected(-1),
+	fDoubleClick(false),
+	fMayDrag(false),
+	fSeparatorHeight(40.0),
+	fSmallStep(30.0)
 {
 }
 
@@ -31,7 +59,6 @@ void AlbumView::AttachedToWindow()
 	SetTarget(this, Looper());
 	// Initial scrollbar positions
 	UpdateScrollbars(Frame().Width(), Frame().Height());	
-	
 }
 
 
@@ -62,91 +89,115 @@ void AlbumView::FrameResized(float width, float height)
 */
 void AlbumView::DrawOffscreen(BView *view, BRect update)
 {
-	DrawBackground(view, update);
-
 	view->SetScale(fZoom);
 	AlbumItem *item;
 	for (int i = 0; (item = ItemAt(i)); i++) {
- 			if (IsItemVisible(item) && update.Intersects(Adjust(item->Frame())))
-				item->DrawItem(view, 0);
+ 			if (IsItemVisible(item) && update.Intersects(Adjust(item->Frame()))) {
+				item->DrawItem(view);
+ 			}
 	}
 }
 
-void AlbumView::DrawBackground(BView *view, BRect update)
-{
-	if (fItems.CountItems() == 0) {
-		view->SetFontSize(16.0);
-		view->SetHighColor(96,96,96);
-		BRect rc = Bounds();
-		view->DrawString(fNoDataMsg.String(), BPoint((rc.Width() - view->StringWidth(fNoDataMsg.String()))/2, rc.Height()/2));
-	}
-}
-
-void AlbumView::MessageReceived(BMessage *message)
-{
- 	switch (message->what) {
- 		case B_SELECT_ALL:
- 			Select(0, CountItems());
- 			break;
-   		default:
-   			BView::MessageReceived(message);
-   			break;
-	}
-}
 
 /**
 	Keyboard navigation.
 */
 void AlbumView::KeyDown(const char *bytes, int32 numBytes)
 {
-	if (fLastSelected < 0)
+	AlbumItem *item = ItemAt(fLastSelected);
+	if (item == NULL)
 		return;
-	BRect frame = ItemAt(fLastSelected)->Frame();
-    AlbumItem *next = NULL;
+    BRect b = Bounds();
+	BRect frame = item->Frame();
+	// you never know...
+	if (!frame.IsValid())
+		return;
+	BRect r;
     int32 i = fLastSelected;
-
     switch (bytes[0]) {
-    case B_LEFT_ARROW:
-        if (i > 0)
-        	i--;
-        break;
-    case B_RIGHT_ARROW:
-        if (i >= 0 && i < CountItems()-1)
-        	i++;
-        break;
-    case B_UP_ARROW:
-		while (i > 0) {
-          	next = ItemAt(--i);
-          	if (next->Frame().top < frame.top && next->Frame().left < frame.right )
-          		break;
-		}
-    	break;
-    case B_DOWN_ARROW:
-		while (i >= 0 && i < CountItems()-1) {
-           	next = ItemAt(++i);
-           	if (next->Frame().top > frame.bottom && next->Frame().left >= frame.left )
-           		break;
-		}
-    	break;
-    default:
-        BView::KeyDown(bytes, numBytes);
-        break;
+    	case B_LEFT_ARROW:
+        	while (i > 0 && !IsItemVisible(item = ItemAt(--i))) {}
+        	break;
+    	case B_RIGHT_ARROW:
+        	while (i >= 0 && i < CountItems()-1 && !IsItemVisible(item = ItemAt(++i))) {}
+        	break;
+    	case B_UP_ARROW:
+			while (i > 0) {
+				item = ItemAt(--i);
+          		r = item->Frame();
+          		if (IsItemVisible(item) && r.top < frame.top && (r.right==frame.right || r.left < frame.right))
+          			break;
+			}
+    		break;
+    	case B_DOWN_ARROW:
+			while (i >= 0 && i < CountItems()-1) {
+				item = ItemAt(++i);
+          		r = item->Frame();
+           		if (IsItemVisible(item) && r.top > frame.bottom && ( r.left==frame.left || r.right > frame.left) )
+           			break;
+			}
+    		break;
+    	case B_PAGE_DOWN:
+			while (i >= 0 && i < CountItems()-1) {
+				item = ItemAt(++i);
+          		r = item->Frame();
+           		if (IsItemVisible(item) && r.top > frame.bottom+b.Height() && ( r.left==frame.left || r.right > frame.left) )
+           			break;
+			}
+    		break;
+    	case B_PAGE_UP:
+			while (i > 0) {
+				item = ItemAt(--i);
+          		r = item->Frame();
+          		if (IsItemVisible(item) && r.top < frame.top-b.Height() && (r.right==frame.right || r.left < frame.right))
+          			break;
+			}
+    		break;
+    	default:
+        	BView::KeyDown(bytes, numBytes);
+        	break;
     }
-
-	if (i != fLastSelected) {
+	     
+	// change selection
+	if (i != fLastSelected && IsItemVisible(item)) {
 	   	int32 mods = 0;
 	   	Window()->CurrentMessage()->FindInt32("modifiers", &mods);
-	    if (!(mods & B_SHIFT_KEY))
+
+	    if (mods & B_SHIFT_KEY) {
+			// block selection
+	    	SelectBlock(fLastSelected, i, !ItemAt(i)->IsSelected());
+	    	Select(i);
+	    }
+	    else  {
+	    	// normal selection
 	    	DeselectAll();
-	    Select(i,1,true);
+	    	Select(i);
+	    }    
 	    fLastSelected = i;
-	    BMessage msg;
-		if (Message())
-			msg = *Message();
-        msg.AddInt32("index", i);
-		Invoke(&msg);
+	    
+	    // notify 
+		SelectionChanged();		
+		if (Message()) {
+			BMessage msg = *Message();
+        	msg.AddInt32("index", fLastSelected);
+			Invoke(&msg);
+		}
+		
+		// bring into view  
+		r = Adjust(ItemAt(fLastSelected)->Frame());
+		float dx=0,dy=0;      
+		if (r.right > b.right)
+			dx = r.right - b.right;
+		else if (r.left < b.left)
+			dx = r.left - b.left;
+		if (r.bottom > b.bottom)
+			dy = r.bottom - b.bottom;
+		else if (r.top < b.top)
+			dy = r.top - b.top;
+		ScrollBy(dx,dy);				
 	}
 }
+
 
 
 /**
@@ -154,54 +205,57 @@ void AlbumView::KeyDown(const char *bytes, int32 numBytes)
 */
 void AlbumView::MouseDown(BPoint where)
 {
-	BMessage msg;
-	if (Message())
-		msg = *Message();
     // This is an event hook so there must be a Looper.
-    BMessage *message = Window()->CurrentMessage();
+	BMessage *message = Window()->CurrentMessage();
+
     int32 mods = 0, clicks = 0, buttons=0;
     message->FindInt32("modifiers", &mods);
     message->FindInt32("clicks", &clicks);
     message->FindInt32("buttons", &buttons);
-    msg.AddInt32("buttons", buttons);
-    msg.AddPoint("where", where);
 		
-    AlbumItem *item;
     // Scale back.
 	where.x /= fZoom;
 	where.y /= fZoom;
-	for (int32 i = 0; (item = ItemAt(i)); i++) {
-		if (!IsItemVisible(item))
-			continue;
-		if (!item->Frame().Contains(where))
-			continue;
-        if (mods & B_SHIFT_KEY) {
+	
+	int32 i = IndexOf(&where);
+	int32 changes = 0;
+	if (i >= 0) {
+		AlbumItem *item = ItemAt(i);
+		
+		// double-clicks are handled later in MouseUp()
+		fDoubleClick = (fLastSelected == i && clicks == 2 && (buttons & B_PRIMARY_MOUSE_BUTTON));
+        fMayDrag = !fDoubleClick && (buttons & B_PRIMARY_MOUSE_BUTTON);			
+        if (mods & B_SHIFT_KEY) 
         	// Block selection
-        	int from = fLastSelected;
-        	int to = i;
-			if (from > to)
-    			to ^= from ^= to ^= from;
-            Select(from, to - from + 1, true);
-        }
+			changes += SelectBlock(fLastSelected, i, !item->IsSelected());
         else if (mods & B_COMMAND_KEY)
         	// Modify selection
-        	Select(i, 1, !item->IsSelected());
-		else if (!item->IsSelected()) {
+        	changes += Select(i, 1, !item->IsSelected());
+		else {
 			// Normal selection
-        	DeselectAll();
-        	Select(i);
+			if (!item->IsSelected())
+				changes += DeselectAll();
+        	changes += Select(i);
 		}
-		// double-clicks are handled later in MouseUp()
-		fDoubleClick = (fLastSelected == i && clicks == 2);
-        fLastSelected = i;
         fLastWhere = where;
-        fMayDrag = !fDoubleClick && (buttons == B_PRIMARY_MOUSE_BUTTON);
-        msg.AddInt32("index", i);
-        break;
+        fLastSelected = i;
     }
-    if (!item)
-    	DeselectAll();
-	Invoke(&msg);
+    else
+	   	changes += DeselectAll();
+
+	if (changes > 0) {
+		//PRINT(("selection changed\n"));
+    	SelectionChanged();
+    	if (!fDoubleClick && Message()) {
+			BMessage msg = *Message();
+			msg.AddInt32("buttons", buttons);
+    		msg.AddPoint("where", where);        
+        	msg.AddInt32("index", fLastSelected);
+			Invoke(&msg);
+    	}
+	}
+    
+    
 }
 
 
@@ -210,13 +264,12 @@ void AlbumView::MouseDown(BPoint where)
 */
 void AlbumView::MouseUp(BPoint where)
 {
-	if (fDoubleClick) {
-		BMessage msg;
-		if (Message())
-			msg = *Message();
-        msg.AddPointer("item", ItemAt(fLastSelected));
+	if (fDoubleClick && Message()) {
+		BMessage msg = *Message();
+		msg.AddBool("launch", true);
+        msg.AddInt32("index", fLastSelected);
 		Invoke(&msg);
-	}
+	}	
 	fDoubleClick = false;
 	fMayDrag = false;
 }
@@ -233,13 +286,15 @@ void AlbumView::MouseMoved(BPoint point, uint32 transit, const BMessage *message
 		point.x -= fLastWhere.x*fZoom;
 		point.y -= fLastWhere.y*fZoom;
 		// Ignore minor jitter...
-		if (point.x*point.x + point.y*point.y > 36) {
+		if (point.x*point.x + point.y*point.y > 50) {
 		   fMayDrag = false;
 		   fDoubleClick = false;
 		   ItemDragged(fLastSelected, fLastWhere);
 		}
     }
 }
+
+
 
 
 /**
@@ -250,12 +305,6 @@ bool AlbumView::IsItemVisible(AlbumItem *item)
 	return !fMask || (fMask & item->Flags());
 }
 
-
-/**
-*/
-void AlbumView::ItemDragged(int32 index, BPoint where)
-{
-}
 
 
 /**
@@ -280,21 +329,25 @@ void AlbumView::Arrange(bool invalidate)
 			continue;
 		BRect frame0 = item->Frame();
 		// separator
-		uint32 hint = item->Flags() & ITEM_FLAG_SEPARATOR ? LAYOUT_HINT_BREAK : 0;
+		uint32 hint = item->Flags() & ALBUMITEM_SEPARATOR ? LAYOUT_HINT_BREAK : 0;
 		BRect frame = layout.Next(frame0, hint);
 		if (hint == LAYOUT_HINT_BREAK) {
-			layout.Last().OffsetBy(0,60);
+			// shift the last frame, so we get a gap in the layout
+			layout.Last().OffsetBy(0,fSeparatorHeight);
 			frame = layout.Last();
 		}
 		if (frame != frame0) {
 			// rects outside the bounds are new
-			if (invalidate && bounds.Intersects(frame0) && frame0.left >= 0) 
+			if (invalidate && bounds.Intersects(frame0) && frame0.left >= 0) {
 				// clear the old rect
-				Invalidate(Adjust(frame0));
-			// reposition
+				Invalidate(Adjust(frame0));				
+			}
+			// reposition to the new location
 			item->SetFrame(frame);
-			if (invalidate && bounds.Intersects(frame)) 
+			if (invalidate && bounds.Intersects(frame))  {
+				// show on the new location
 				Invalidate(Adjust(frame));
+			}
 		}
 		if (frame.right > width)
 			width = frame.right;
@@ -305,11 +358,13 @@ void AlbumView::Arrange(bool invalidate)
 }
 
 
+/**
+	Applies SortBy function.
+*/
 void AlbumView::SortItems()
 {
 	if (fOrderBy) {
 		fItems.SortItems(fOrderBy);
-		fSelection.SortItems(fOrderBy);
 	}
 }
 
@@ -336,7 +391,7 @@ float AlbumView::Zoom()
 	return fZoom;
 }
 
-void AlbumView::SetColumns(int cols)
+void AlbumView::SetColumns(int16 cols)
 {
 	fColumns = cols;
 	Arrange(false);
@@ -368,6 +423,24 @@ int32 AlbumView::IndexOf(AlbumItem *item)
 }
 
 
+/**
+	First item containing point.
+*/
+int32 AlbumView::IndexOf(BPoint *p)
+{
+	if (p == NULL)
+		return -1;
+		
+	AlbumItem *item;
+	for (int32 i = 0; (item = ItemAt(i)); i++) {
+		if (!IsItemVisible(item) || !item->Frame().Contains(*p))
+			continue;
+		return i;
+	}	
+	return -1;
+}
+
+
 AlbumItem* AlbumView::AddItem(AlbumItem *item, int32 index)
 {
 	bool ok;
@@ -378,17 +451,12 @@ AlbumItem* AlbumView::AddItem(AlbumItem *item, int32 index)
 	else
 		ok = fItems.AddItem(item, index);
 	return ok ? item : NULL;
-	
-	
 }
 
 
 AlbumItem* AlbumView::RemoveItem(int32 index)
 {
-	AlbumItem *item = fItems.RemoveItemAt(index);
-	// NOP if NULL
-	fSelection.RemoveItem(item);
-	return item;
+	return fItems.RemoveItemAt(index);
 }
 
 
@@ -396,6 +464,7 @@ AlbumItem* AlbumView::EachItem(BObjectList<AlbumItem>::EachFunction func, void *
 {
 	return fItems.EachElement(func, param);
 }
+
 
 
 void AlbumView::SetOrderBy(BObjectList<AlbumItem>::CompareFunction func)
@@ -415,65 +484,96 @@ BObjectList<AlbumItem>::CompareFunction AlbumView::OrderByFunc()
 
 void AlbumView::InvalidateItem(AlbumItem *item)
 {
-	Invalidate(Adjust(item->Frame()));
+	BRect r = item->Frame();
+	Invalidate(Adjust(r));
 }
 
 
 
-void AlbumView::DeselectAll()
+int32 AlbumView::DeselectAll()
 {
+	int32 n = 0;
 	AlbumItem *item = NULL;
-	for  (int i = 0; (item = fSelection.ItemAt(i)); i++) {
-		item->SetSelected(false);
+	for  (int i = 0; (item = ItemAt(i)); i++) {
+		if (!item->IsSelected())
+			continue;
+		item->Select(false);
 		InvalidateItem(item);
+		n++;
 	}
-	fSelection.MakeEmpty();
 	fLastSelected = -1;
+	return n;
 }
 
 
 /**
 	Adds or removes items from the selection.
+	Returns number of changes.
 */
-void AlbumView::Select(int32 index, int32 count, bool enabled)
+int32 AlbumView::Select(int32 index, int32 count, bool enabled)
 {
+	int32 n = 0;
 	for (int i = index; i < index + count ;i++) {
 		AlbumItem *item = ItemAt(i);
-		if (IsItemVisible(item) && item && item->IsSelected() != enabled) {
-			item->SetSelected(enabled);
+		if (IsItemVisible(item) && item->IsSelected() != enabled) {
+			item->Select(enabled);
 			InvalidateItem(item);
-			if (enabled)
-				fSelection.AddItem(item);
-			else
-				fSelection.RemoveItem(item);
+			n++;	
 		}
 	}
+	return n;
 }
+
+
+int32 AlbumView::SelectBlock(int32 from, int32 to, bool enabled)
+{
+	if (from > to)
+		to ^= from ^= to ^= from;
+	return Select(from, to - from + 1, enabled);	
+}
+
 
 int32 AlbumView::CountSelected()
 {
-	return fSelection.CountItems();
+	int32 n = 0;
+	AlbumItem *item;
+	for (int32 i=0; (item = ItemAt(i)); i++) {
+		if (item->IsSelected())
+			n++;
+	}
+	return n;
 }
 
 
-AlbumItem* AlbumView::GetSelection(int32 index)
+AlbumItem* AlbumView::SelectedItem(int32 index)
 {
-	return fSelection.ItemAt(index);
+	int32 n = 0;
+	AlbumItem *item;
+	for (int32 i=0; (item = ItemAt(i)); i++) {
+		if (!item->IsSelected())
+			continue;
+		if (index == n++)
+			return item;
+	}
+	return NULL;
 }
 
 
 void AlbumView::DeleteSelected()
 {
 	AlbumItem *item = NULL;
-	for  (int i = 0; (item = fSelection.ItemAt(i)); i++)
-		fItems.RemoveItem(item, true);
+	for  (int i = CountItems()-1; (item = ItemAt(i)); i--)
+		if (item->IsSelected())
+			fItems.RemoveItem(item, true);
+	
 	Arrange(false);
 	Invalidate();
-	fSelection.MakeEmpty();
 }
 
 
 /**
+	Sets visibility mask.
+	Only items with Flags() bits in Mask() are visible. 	
 */
 void AlbumView::SetMask(uint32 mask)
 {
@@ -483,10 +583,17 @@ void AlbumView::SetMask(uint32 mask)
 }
 
 
-uint32 AlbumView::Mask()
+
+/**
+	Visibility mask.
+	Only items with Flags() bits in Mask() are visible. 
+*/
+const uint32 AlbumView::Mask()
 {
 	return fMask;
 }
+
+
 
 
 void AlbumView::UpdateScrollbars(float width, float height)
@@ -499,7 +606,7 @@ void AlbumView::UpdateScrollbars(float width, float height)
 			range = 0;
 		hscroll->SetProportion(width / full);
 		hscroll->SetRange(0, range);
-		hscroll->SetSteps(32, range/10);
+		hscroll->SetSteps(fSmallStep, range/10);
 	}
 	BScrollBar *vscroll = ScrollBar(B_VERTICAL);
 	if (vscroll) {
@@ -509,7 +616,7 @@ void AlbumView::UpdateScrollbars(float width, float height)
 			range = 0;
 		vscroll->SetProportion(height / full);
 		vscroll->SetRange(0, range);
-		vscroll->SetSteps(32, range/10);
+		vscroll->SetSteps(fSmallStep, range/10);
 	}
 }
 

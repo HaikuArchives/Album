@@ -28,8 +28,8 @@ SOFTWARE.
 #include <MenuItem.h>
 #include <Node.h>
 #include <AppFileInfo.h>
-#include "OpenWithMenu.h"
 #include <string.h>
+#include "OpenWithMenu.h"
 
 OpenWithMenu::OpenWithMenu(const char *name, const entry_ref *ref, uint32 command):
         BMenu(name, B_ITEMS_IN_COLUMN)

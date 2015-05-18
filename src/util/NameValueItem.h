@@ -5,7 +5,7 @@
 #ifndef NAMEVALUEITEM_H
 #define NAMEVALUEITEM_H
 
-#include <ListItem.h>
+#include <InterfaceKit.h>
 #include <TypeConstants.h>
 #include <String.h>
 
@@ -14,8 +14,7 @@ class NameValueItem : public BListItem
 	public:
 	
 	NameValueItem(const NameValueItem &source);
-	NameValueItem(const char *name, uint32 level = 0, bool expanded = true);
-	NameValueItem(const char *name, const char *value, uint32 level = 0, bool expanded = true);
+	NameValueItem(const char *name, const char *value=NULL, uint32 level = 0, bool expanded = true);
 	NameValueItem(const char *name, type_code type, const void *value, ssize_t size, uint32 level = 0, bool expanded = true);
 
 	virtual void DrawItem(BView *owner, BRect itemRect, bool fullUpdate = false);

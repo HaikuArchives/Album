@@ -2,37 +2,51 @@
 #define _MAINWINDOW_H_
 
 #include <Window.h>
+#include <Directory.h>
 #include "MainView.h"
 #include "ImageLoader.h"
 #include "MainToolbar.h"
 #include "MainSidebar.h"
-#include <Directory.h>
 
+class BMenuBar;
 class BMenuItem;
-class BMenu;
+class BDirectory;
+
+#define CENTER_IN_FRAME(r,frame) r.OffsetTo(frame.LeftTop() + BPoint((frame.Width()-r.Width())/2,(frame.Height()-r.Height())/2))
 
 enum {
 
-	MSG_FILE_TRASH = 'ftrs',
-	MSG_EDIT_REMOVE = 'ermv',
-	MSG_EDIT_UNMARK = 'eumk',
-	MSG_VIEW_SORT_NONE = 'vsno',
-	MSG_VIEW_SORT_NAME = 'vsnm',
-	MSG_VIEW_SORT_CTIME = 'vsct',
-	MSG_VIEW_SORT_MTIME = 'vsmt',
-	MSG_VIEW_SORT_SIZE = 'vssz',
-	MSG_VIEW_SORT_DIR = 'vsdr',
-	MSG_VIEW_FLICKER = 'vflc',
-	MSG_VIEW_COL_0 = 'vc00',
-	MSG_VIEW_COL_5 = 'vc05',
-	MSG_VIEW_COL_10 = 'vc10',
-	MSG_VIEW_MARKED = 'vmrk',
-	MSG_VIEW_TRASH = 'vtrs',
-	MSG_VIEW_LABELS = 'vlbl',
-	MSG_VIEW_LABEL_NAME = 'vlb0',
-	MSG_VIEW_LABEL_SIZE = 'vlb1',
-	MSG_VIEW_LABEL_DIM = 'vlb2',
+	CMD_ITEM_TRASH = 'iTrs',
+	CMD_ITEM_REMOVE = 'iDel',	
+	CMD_ITEM_MARK = 'iMrk',
+	CMD_ITEM_UNMARK = 'iUmk',
+	CMD_SORT_NONE = 'ord0',
+	CMD_SORT_NAME = 'ord1',
+	CMD_SORT_CTIME = 'ord2',
+	CMD_SORT_MTIME = 'ord3',
+	CMD_SORT_SIZE = 'ord4',
+	CMD_SORT_DIR = 'ord5',
+	CMD_COL_0 = 'vc00',
+	CMD_COL_5 = 'vc05',
+	CMD_COL_10 = 'vc10',
+	CMD_VIEW_MARKED = 'vMrk',
+	CMD_VIEW_IPTC = 'vIPT',
+	CMD_VIEW_TRASH = 'vTrs',
+	CMD_LABEL_NAME = 'lbl0',
+	CMD_LABEL_SIZE = '1bl1',
+	CMD_LABEL_DIM = 'lbl2',
+	CMD_LABEL_MTIME = 'lbl3',
+	CMD_TAG_COPY = 'tCpy',
+	CMD_ATTR_REMOVE = 'aDel',
+	CMD_ATTR_ICONS = 'aIcn',
+	CMD_ATTR_THUMBS = 'aThm',
+	CMD_ATTR_THUMBS_REBUILD = 'aThr',
+	MSG_ITEM_SELECTED = 'iSel',	
+	
 };
+
+
+
 
 class MainWindow : public BWindow  
 {
@@ -52,32 +66,38 @@ class MainWindow : public BWindow
 	void UpdateReceived(BMessage *message);
 	void DeleteReceived(BMessage *message);
 	void ItemSelected(BMessage *message);
+	void ItemRenamed(BMessage *message);
 	void AttributeSelected(BMessage *message);
-	void DeleteSelected();
-	void MarkSelected(bool enabled);
-	void RenameSelected(BMessage *message);
+	void AttributeChanged(BMessage *message);
+
+	void DeleteSelection();
+	void MarkSelection(bool enabled);
 	void CopySelectedTags();	
 	void DeleteSelectedAttributes();
-	void AttributeChanged(BMessage *attr);
-	void WriteTrackerIcons(BMessage *message);
+	void WriteThumbnails(int mode);
 	void MoveToTrash();
-	void SetLabelFlags();
+	void UpdateItemFlags();
+	void CopyToClipboard();
+	void PasteFromClipboard();
+
+	BMenuBar *fMenuBar;
+	BMenuItem *fFlickerFree;
+	BMenuItem *fOnlyMarked;
+	BMenuItem *fViewTrash;
+	BMenuItem *fMoveToTrash, *fRemoveFromView, *fEditMark, *fEditUnmark;
+	BMenuItem *fShowName, *fShowSize, *fShowDimension, *fShowMTime;
+	BMenu *fAttrMenu;
+	BWindow *fFileOpDlg;	
 	
 	MainView *fBrowser;
 	ImageLoader *fLoader;
 	MainToolbar *fToolbar;
-	MainSidebar *fSidebar;
-	BMenuItem *fFlickerFree;
-	BMenuItem *fOnlyMarked;
-	BMenuItem *fViewTrash;
-	BMenuItem *fMoveToTrash;
-	BMenuItem *fShowName, *fShowSize, *fShowDimension;
-	
-	BMenu *fAttrMenu;
+	MainSidebar *fSidebar;	
 	int32 fThumbFormat;
 	BString fWriteAttr;
 	BDirectory fRepository;
-		
+	float fThumbWidth, fThumbHeight;	
+	uint32 fLabelMask;
 };
 
 #endif

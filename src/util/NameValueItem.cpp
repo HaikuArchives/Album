@@ -31,15 +31,26 @@ SOFTWARE.
 #include <stdlib.h>
 #include <NameValueItem.h>
 
-// strftime
-#define TIME_FORMAT "%x %X"
+
+#ifndef __HAIKU__
+#define ITEM_TEXT_COLOR (rgb_color){0,0,0}
+#define ITEM_SELECTED_TEXT_COLOR ui_color(B_MENU_SELECTED_ITEM_TEXT_COLOR)
+#define ITEM_SELECTED_BACKGROUND_COLOR ui_color(B_MENU_SELECTION_BACKGROUND_COLOR)
+#define ITEM_HIGHLIGHT_TEXT_COLOR (rgb_color){255,0,0}
+#else
+#define ITEM_TEXT_COLOR ui_color(B_LIST_ITEM_TEXT_COLOR)
+#define ITEM_SELECTED_TEXT_COLOR ui_color(B_LIST_SELECTED_ITEM_TEXT_COLOR)
+#define ITEM_SELECTED_BACKGROUND_COLOR ui_color(B_LIST_SELECTED_BACKGROUND_COLOR)
+#define ITEM_HIGHLIGHT_TEXT_COLOR ui_color(B_CONTROL_HIGHLIGHT_COLOR)
+#endif
+
 
 /**
 	Copy constructor
 */
 NameValueItem::NameValueItem(const NameValueItem& source):
 	BListItem(source.OutlineLevel(), source.IsExpanded()),
-	fValueColor(ui_color(B_MENU_ITEM_TEXT_COLOR)),
+	fValueColor(ITEM_TEXT_COLOR),
 	fNameColor(tint_color(fValueColor, B_LIGHTEN_2_TINT))
 {
 	fName = source.Name();
@@ -50,23 +61,6 @@ NameValueItem::NameValueItem(const NameValueItem& source):
 	fDivider = source.Divider();
 }
 
-
-/**
-	Creates a new instance without value.
-	\param name Name or label text
-	\param level Outline level (BOutlineListView only)
-	\param expanded Is outline expanded (BOutlineListView only)
-*/
-NameValueItem::NameValueItem(const char *name, uint32 level, bool expanded):
-	BListItem(level, expanded),
-	fName(name),
-	fLabel(name),
-	fValueColor(ui_color(B_MENU_ITEM_TEXT_COLOR)),
-	fNameColor(tint_color(fValueColor, B_LIGHTEN_2_TINT)),
-	fDivider(0),
-	fReadOnly(false)
-{
-}
 
 
 /**
@@ -81,7 +75,7 @@ NameValueItem::NameValueItem(const char *name, const char *value, uint32 level, 
 	fName(name),
 	fValue(value),
 	fLabel(name),
-	fValueColor(ui_color(B_MENU_ITEM_TEXT_COLOR)),
+	fValueColor(ITEM_TEXT_COLOR),
 	fNameColor(tint_color(fValueColor, B_LIGHTEN_2_TINT)),
 	fType(B_STRING_TYPE)
 {
@@ -101,12 +95,13 @@ NameValueItem::NameValueItem(const char *name, type_code type, const void *value
 	fName(name),
 	fValue(NULL),
 	fLabel(name),
-	fValueColor(ui_color(B_MENU_ITEM_TEXT_COLOR)),
+	fValueColor(ITEM_TEXT_COLOR),
 	fNameColor(tint_color(fValueColor, B_LIGHTEN_2_TINT)),
 	fDivider(0),
 	fReadOnly(false),
 	fType(type)
 {
+		
 	SetValue(type, value, size);
 }
 
@@ -123,9 +118,13 @@ void NameValueItem::DrawItem(BView *owner, BRect frame, bool complete)
 		rgb_color back;
 		if (IsSelected()) {
 			// It is best not to cache ui_color values as they may change anytime.
-			back = ui_color(B_MENU_SELECTION_BACKGROUND_COLOR);
-			value_color = ui_color(B_MENU_SELECTED_ITEM_TEXT_COLOR);
-			name_color = tint_color(value_color, B_DARKEN_1_TINT);
+			back = ITEM_SELECTED_BACKGROUND_COLOR;
+			if (!owner->IsFocus())
+				back = tint_color(back,B_DISABLED_MARK_TINT);
+			else {
+				value_color = ITEM_SELECTED_TEXT_COLOR;
+				name_color = tint_color(value_color, B_DARKEN_1_TINT);
+			}
 		}
 		else
 			back = owner->ViewColor();
@@ -157,7 +156,7 @@ void NameValueItem::Update(BView* owner, const BFont* font)
 	SetWidth(owner->Frame().Width());
 	font_height fh;
 	font->GetHeight(&fh);
-	SetHeight(fh.ascent + fh.descent + fh.leading + 1);
+	SetHeight(fh.ascent + fh.descent + fh.leading + 2);
 }
 
 
@@ -239,7 +238,7 @@ void NameValueItem::SetValue(const char *value, bool merge)
 	else if (fValue.FindFirst(value) < 0) {
 		fValue += "; ";
 		fValue += value;
-		SetValueColor((rgb_color){255,0,0});
+		SetValueColor(ITEM_HIGHLIGHT_TEXT_COLOR);
 	}
 }
 
@@ -308,7 +307,7 @@ status_t NameValueItem::SetValue(type_code type, const void *data, ssize_t size)
 			break;
 		case B_TIME_TYPE: {
    			struct tm *ti = localtime ((time_t*)data);
-			strftime(s, 24, TIME_FORMAT, ti);
+			strftime(s, 24, "%x %X", ti);
 			break;
 		}
 	}

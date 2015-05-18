@@ -1,112 +1,121 @@
+#define DEBUG 1
 #include <Debug.h>
-#include <MenuBar.h>
 #include <MenuItem.h>
 #include <ScrollView.h>
-#include "App.h"
-#include "MainWindow.h"
-#include "SplitView.h"
+#include <MenuBar.h>
 #include <TextControl.h>
-#include "FileNameDialog.h"
-#include "FileAttrDialog.h"
 #include <Node.h>
-#include <TranslatorFormats.h>
-#include <FindDirectory.h>
 #include <Path.h>
 #include <Entry.h>
+#include <FindDirectory.h>
+#include <TranslatorFormats.h>
 #include <NodeMonitor.h>
+#include <Clipboard.h>
+#include <Roster.h>
+#include "MainWindow.h"
+#include "SplitView.h"
+#include "FileAttrDialog.h"
+#include "App.h"
+#include "JpegTagExtractor.h"
 
+#ifndef __HAIKU__
+#define B_SYSTEM_TEMP_DIRECTORY B_COMMON_TEMP_DIRECTORY
+#endif
 
 
 
 MainWindow::MainWindow(BRect frame, const char *title): 
-	BWindow(frame, title, B_DOCUMENT_WINDOW_LOOK, B_NORMAL_WINDOW_FEEL, B_ASYNCHRONOUS_CONTROLS),
+	BWindow(frame, title, B_DOCUMENT_WINDOW_LOOK, B_NORMAL_WINDOW_FEEL, B_WILL_ACCEPT_FIRST_CLICK | B_ASYNCHRONOUS_CONTROLS),
 	fThumbFormat(B_GIF_FORMAT),
-	fWriteAttr("IPRO:thumbnail")
+	fWriteAttr("IPRO:thumbnail"),
+	fThumbWidth(64),
+	fThumbHeight(64)
 {
-    BMenuBar *menuBar = new BMenuBar(BRect(), "MenuBar");
-    AddChild(menuBar);
+
+    fMenuBar = new BMenuBar(BRect(), "MenuBar");
+    AddChild(fMenuBar);
     
 	// File Menu
     BMenu *menuFile = new BMenu("File");
-    menuBar->AddItem(menuFile);
+    fMenuBar->AddItem(menuFile);
     BMenuItem* itemAbout = new BMenuItem(_("About")B_UTF8_ELLIPSIS, new BMessage(B_ABOUT_REQUESTED));
     itemAbout->SetTarget(be_app);
     menuFile->AddItem(itemAbout);
     menuFile->AddSeparatorItem();
-    fMoveToTrash = new BMenuItem(_("Move to Trash"), new BMessage(MSG_FILE_TRASH), 'T');
-    fMoveToTrash->SetEnabled(false);
-    menuFile->AddItem(fMoveToTrash);
+    menuFile->AddItem(fMoveToTrash = new BMenuItem(_("Move to Trash"), new BMessage(CMD_ITEM_TRASH), 'T'));
     menuFile->AddSeparatorItem();
     BMenuItem *itemQuit = new BMenuItem(_("Quit"), new BMessage(B_QUIT_REQUESTED), 'Q');
 	itemQuit->SetTarget(be_app);
     menuFile->AddItem(itemQuit);
+    
     // Edit Menu
     BMenu *editMenu = new BMenu(_("Edit"));
-    menuBar->AddItem(editMenu);
+    fMenuBar->AddItem(editMenu);
     editMenu->AddItem(new BMenuItem(_("Select All"), new BMessage(B_SELECT_ALL), 'A'));
-    editMenu->AddItem(new BMenuItem(_("Mark"), new BMessage(MSG_TOOLBAR_MARK), 'M'));
-    editMenu->AddItem(new BMenuItem(_("Unmark"), new BMessage(MSG_EDIT_UNMARK), 'U'));
+    editMenu->AddItem(fEditMark = new BMenuItem(_("Mark"), new BMessage(CMD_ITEM_MARK), 'M'));
+    editMenu->AddItem(fEditUnmark = new BMenuItem(_("Unmark"), new BMessage(CMD_ITEM_UNMARK), 'U'));
     editMenu->AddSeparatorItem();
-    editMenu->AddItem(new BMenuItem(_("Remove Selected"), new BMessage(MSG_TOOLBAR_REMOVE)));
+    editMenu->AddItem(fRemoveFromView=new BMenuItem(_("Remove from View"), new BMessage(CMD_ITEM_REMOVE)));
     editMenu->AddSeparatorItem();
     BMenuItem *fShowPrefs = new BMenuItem(_("Preferences")B_UTF8_ELLIPSIS, new BMessage(CMD_SHOW_PREFS));
     fShowPrefs->SetTarget(be_app);
     editMenu->AddItem(fShowPrefs);
+    
     // View Menu
     BMenu *viewMenu = new BMenu(_("View"));
-    menuBar->AddItem(viewMenu);
+    fMenuBar->AddItem(viewMenu);
+	
 	// View Sort Submenu
     BMenu *menuSort = new BMenu(_("Order By"));
     viewMenu->AddItem(menuSort);
     menuSort->SetRadioMode(true);
-    BMenuItem* item = new BMenuItem(_("None"), new BMessage(MSG_VIEW_SORT_NONE));
-	item->SetMarked(true);
-    menuSort->AddItem(item);
-    menuSort->AddItem(new BMenuItem(_("File Name"), new BMessage(MSG_VIEW_SORT_NAME)));
-    menuSort->AddItem(new BMenuItem(_("File Size"), new BMessage(MSG_VIEW_SORT_SIZE)));
-    menuSort->AddItem(new BMenuItem(_("First Created"), new BMessage(MSG_VIEW_SORT_CTIME)));
-    menuSort->AddItem(new BMenuItem(_("Last Modified"), new BMessage(MSG_VIEW_SORT_MTIME)));
-    menuSort->AddItem(new BMenuItem(_("Folder"), new BMessage(MSG_VIEW_SORT_DIR)));
+    menuSort->AddItem(new BMenuItem(_("None"), new BMessage(CMD_SORT_NONE)));
+    menuSort->AddItem(new BMenuItem(_("File Name"), new BMessage(CMD_SORT_NAME)));
+    menuSort->AddItem(new BMenuItem(_("File Size"), new BMessage(CMD_SORT_SIZE)));
+    menuSort->AddItem(new BMenuItem(_("First Created"), new BMessage(CMD_SORT_CTIME)));
+    menuSort->AddItem(new BMenuItem(_("Last Modified"), new BMessage(CMD_SORT_MTIME)));
+    menuSort->AddItem(new BMenuItem(_("Folder"), new BMessage(CMD_SORT_DIR)));
+	menuSort->ItemAt(0)->SetMarked(true);
+	
 	// View Columns Submenu
     BMenu *menuColumns = new BMenu(_("Columns"));
     viewMenu->AddItem(menuColumns);
     menuColumns->SetRadioMode(true);
-    item = new BMenuItem(_("Auto"), new BMessage(MSG_VIEW_COL_0));
-	item->SetMarked(true);
-    menuColumns->AddItem(item);
-    menuColumns->AddItem(new BMenuItem("5", new BMessage(MSG_VIEW_COL_5)));
-    menuColumns->AddItem(new BMenuItem("10", new BMessage(MSG_VIEW_COL_10)));
+    menuColumns->AddItem(new BMenuItem(_("Auto"), new BMessage(CMD_COL_0)));
+    menuColumns->AddItem(new BMenuItem("5", new BMessage(CMD_COL_5)));
+    menuColumns->AddItem(new BMenuItem("10", new BMessage(CMD_COL_10)));
+	menuColumns->ItemAt(0)->SetMarked(true);
+	
 	// View Labels Submenu
     BMenu *menuShow = new BMenu(_("Labels"));
     viewMenu->AddItem(menuShow);
-	fShowName = new BMenuItem(_("File Name"), new BMessage(MSG_VIEW_LABEL_NAME));
-    menuShow->AddItem(fShowName);
+    menuShow->AddItem(fShowName = new BMenuItem(_("File Name"), new BMessage(CMD_LABEL_NAME)));
+    menuShow->AddItem(fShowSize = new BMenuItem(_("File Size"), new BMessage(CMD_LABEL_SIZE)));
+    menuShow->AddItem(fShowDimension = new BMenuItem(_("Dimensions"), new BMessage(CMD_LABEL_DIM)));
+    menuShow->AddItem(fShowMTime = new BMenuItem(_("Modification time"), new BMessage(CMD_LABEL_MTIME)));
 	fShowName->SetMarked(true);
-	fShowSize = new BMenuItem(_("File Size"), new BMessage(MSG_VIEW_LABEL_SIZE));
-    menuShow->AddItem(fShowSize);
-	fShowDimension = new BMenuItem(_("Dimensions"), new BMessage(MSG_VIEW_LABEL_DIM));
 	fShowDimension->SetMarked(true);
-    menuShow->AddItem(fShowDimension);
     
 	// Other view options
     viewMenu->AddSeparatorItem();
-	fOnlyMarked = new BMenuItem(_("Only Marked"), new BMessage(MSG_VIEW_MARKED));
-    viewMenu->AddItem(fOnlyMarked);
+    viewMenu->AddItem(fOnlyMarked = new BMenuItem(_("Only Marked"), new BMessage(CMD_VIEW_MARKED)));
+    viewMenu->AddItem(fViewTrash = new BMenuItem(_("Include Trash"), new BMessage(CMD_VIEW_TRASH)));
+    
     // Edit Menu
     fAttrMenu = new BMenu(_("Attributes"));
-    fAttrMenu->SetEnabled(false);
-    menuBar->AddItem(fAttrMenu);
-    fAttrMenu->AddItem(new BMenuItem(_("Copy Tags"), new BMessage(MSG_TOOLBAR_TAGCOPY)));
-    fAttrMenu->AddItem(new BMenuItem(_("Write Tracker Icons"), new BMessage(MSG_FILEATTR_ICONS)));
-    fAttrMenu->AddItem(new BMenuItem(_("Write Thumbnails"), new BMessage(MSG_FILEATTR_THUMBS)));
+    fMenuBar->AddItem(fAttrMenu);
+    fAttrMenu->AddItem(new BMenuItem(_("Copy Tags"), new BMessage(CMD_TAG_COPY)));
+    fAttrMenu->AddItem(new BMenuItem(_("Write Tracker Icons"), new BMessage(CMD_ATTR_ICONS)));
+    fAttrMenu->AddItem(new BMenuItem(_("Write Thumbnails"), new BMessage(CMD_ATTR_THUMBS)));
+    fAttrMenu->AddItem(new BMenuItem(_("Rebuild Thumbnails"), new BMessage(CMD_ATTR_THUMBS_REBUILD)));
 	fAttrMenu->AddSeparatorItem();
-    fAttrMenu->AddItem(new BMenuItem(_("Remove Selected"), new BMessage(MSG_ATTR_DELETE)));
+    fAttrMenu->AddItem(new BMenuItem(_("Delete Selected"), new BMessage(CMD_ATTR_REMOVE)));
      
 
 	// Toolbar (top)
 	BRect r = Bounds();
-	r.top = menuBar->Frame().bottom + 1;
-	r.bottom = r.top + 32;
+	r.top = fMenuBar->Frame().bottom + 1;
+	r.bottom = r.top + 40;
 	fToolbar = new MainToolbar(r, B_FOLLOW_LEFT_RIGHT);
 	AddChild(fToolbar);
 
@@ -115,32 +124,28 @@ MainWindow::MainWindow(BRect frame, const char *title):
 	r.top = fToolbar->Frame().bottom + 1;
 	r.right +=1;
 	r.bottom +=1;
-	SplitView *view = new SplitView(r, "SplitView", B_HORIZONTAL, B_FOLLOW_ALL, B_PULSE_NEEDED | B_FRAME_EVENTS);
-
+	SplitView *view = new SplitView(r, NULL, B_HORIZONTAL, B_FOLLOW_ALL, B_PULSE_NEEDED | B_FRAME_EVENTS);
 
 	// Image Browser (right)
-	fBrowser = new MainView(BRect(0,0,300,400),  B_FOLLOW_ALL_SIDES);
-	AlbumFileItem::InitBitmaps();
+	fBrowser = new MainView(BRect(0,0,r.Width()*0.75,r.Height()), new BMessage(MSG_ITEM_SELECTED), B_FOLLOW_ALL_SIDES);
 	fBrowser->SetMask(ITEM_FLAG_DIMMED);
-	
 	// Sidebar (left)
-	fSidebar = new MainSidebar(BRect(0,0,200,400), fBrowser, B_FOLLOW_TOP_BOTTOM);
+	fSidebar = new MainSidebar(BRect(0,0,r.Width()*0.25,r.Height()), fBrowser, B_FOLLOW_TOP_BOTTOM);
 	view->AddChild(fSidebar);
-	// right
-	view->AddChild(new BScrollView("Scroller", fBrowser, B_FOLLOW_ALL, 0, true, true, B_PLAIN_BORDER));
-
-	
-	
-	// Auto-arrange children.
+	view->AddChild(new BScrollView(NULL, fBrowser, B_FOLLOW_ALL, 0, true, true, B_PLAIN_BORDER));
 	AddChild(view);
-	// Animation effects depend on this: 
-	SetPulseRate(100000);	
+	
+	fOnlyMarked->SetMarked(fBrowser->Mask() & ITEM_FLAG_MARKED);
+	fViewTrash->SetMarked(fBrowser->Mask() & ITEM_FLAG_DIMMED);
+	
+
 	// Start the loader thread.
-	fLoader = new ImageLoader("Loader");
+	fLoader = new ImageLoader("ImageLoader");
+	fLoader->SetThumbnailSize(fThumbWidth, fThumbHeight);
 	fLoader->Run();
 	fLoader->StartWatchingAll(fBrowser);
-	
-	// Create a tempory repository for negotiated drops from image ditors etc.
+
+	// Create a tempory repository for negotiated drops from image editors etc.
 	BPath path;
 	if (find_directory(B_SYSTEM_TEMP_DIRECTORY, &path) == B_OK) {
 		path.Append("Album");
@@ -152,27 +157,33 @@ MainWindow::MainWindow(BRect frame, const char *title):
 			watch_node(&nref, B_WATCH_DIRECTORY, fLoader,fLoader);
 		}
 	}
+
+	ItemSelected(NULL);
+	UpdateItemFlags();	
+	
+	// Animation effects depend on this: 
+	SetPulseRate(75000);	
 	
 }
 
 
+
 MainWindow::~MainWindow()
 {
-	//fLoader->StopWatchingAll(this);
-	// Try break.
 	fLoader->Stop();
-	// Blocks until it locks.
-	fLoader->Lock();
-	fLoader->Quit();
-	// BLooper deleted itself.
+	if (fLoader->Lock() == B_OK)
+		fLoader->Quit();
 }
 
-/// The close box was clicked.
+
+
 bool MainWindow::QuitRequested()
 {
 	be_app->PostMessage(B_QUIT_REQUESTED);
 	return true;
 }
+
+
 
 
 void MainWindow::MessageReceived(BMessage *message)
@@ -189,8 +200,17 @@ void MainWindow::MessageReceived(BMessage *message)
 			break;
 		case B_SELECT_ALL:
 			fBrowser->Select(0, fBrowser->CountItems());
-			fSidebar->Update();
-			fToolbar->SetSelected(fBrowser->CountSelected());
+			ItemSelected(NULL);
+			break;
+		case B_PASTE:
+			PasteFromClipboard();
+			break;			
+		case B_COPY:
+			CopyToClipboard();
+			break;			
+		case B_CUT:
+			CopyToClipboard();
+			DeleteSelection();
 			break;
 		case MSG_PREFS_CHANGED:
 			PrefsReceived(message);
@@ -198,35 +218,32 @@ void MainWindow::MessageReceived(BMessage *message)
 		case MSG_LOADER_UPDATE:
 			UpdateReceived(message);
 			break;
-		case MSG_TOOLBAR_ZOOM:
+		case MSG_TOOLBAR_ZOOM: {
 			int32 value;
 			message->FindInt32("be:value", &value);
 			fBrowser->SetZoom(value/20.0);
 			break;
+		}
 		case MSG_TOOLBAR_STOP:
 			fLoader->Stop();
 			break;
 		case MSG_ITEM_SELECTED:
 			ItemSelected(message);
 			break;
-		case MSG_TOOLBAR_REMOVE:
-			DeleteSelected();
+		case CMD_ITEM_REMOVE:
+			DeleteSelection();
 			break;
-		case MSG_TOOLBAR_MARK:
-			MarkSelected(true);
+		case CMD_ITEM_TRASH:
+			MoveToTrash();
+			break;			
+		case CMD_ITEM_MARK:
+			MarkSelection(true);
 			break;
-		case MSG_EDIT_UNMARK:
-			MarkSelected(false);
-			break;
-		case MSG_ATTR_DELETE:
-			DeleteSelectedAttributes();
-			break;
-		case MSG_TOOLBAR_TAGCOPY:
-		case MSG_TAG_DRAGGED:
-			CopySelectedTags();
+		case CMD_ITEM_UNMARK:
+			MarkSelection(false);
 			break;
 		case MSG_NAME_CHANGED:
-			RenameSelected(message);
+			ItemRenamed(message);
 			break;
 		case MSG_ATTR_CHANGED:
 			AttributeChanged(message);
@@ -234,77 +251,90 @@ void MainWindow::MessageReceived(BMessage *message)
 		case MSG_TAG_SELECTED:
 			AttributeSelected(message);
 			break;
-		case MSG_FILEATTR_ICONS:
-		case MSG_FILEATTR_THUMBS:
-			WriteTrackerIcons(message);
-			break;
-		case MSG_VIEW_SORT_NAME:
-			fBrowser->SetOrderBy(AlbumFileItem::CmpRef);
-			fBrowser->Arrange();
-			break;
-		case MSG_VIEW_SORT_NONE:
+		case CMD_SORT_NONE:
 			fBrowser->SetOrderBy(AlbumFileItem::CmpSerial);
 			fBrowser->Arrange();
 			break;
-		case MSG_VIEW_SORT_SIZE:
+		case CMD_SORT_NAME:
+			fBrowser->SetOrderBy(AlbumFileItem::CmpRef);
+			fBrowser->Arrange();
+			break;
+		case CMD_SORT_SIZE:
 			fBrowser->SetOrderBy(AlbumFileItem::CmpSize);
 			fBrowser->Arrange();
 			break;
-		case MSG_VIEW_SORT_CTIME:
+		case CMD_SORT_CTIME:
 			fBrowser->SetOrderBy(AlbumFileItem::CmpCTime);
 			fBrowser->Arrange();
 			break;
-		case MSG_VIEW_SORT_MTIME:
+		case CMD_SORT_MTIME:
 			fBrowser->SetOrderBy(AlbumFileItem::CmpMTime);
 			fBrowser->Arrange();
 			break;
-		case MSG_VIEW_SORT_DIR:
+		case CMD_SORT_DIR:
 			fBrowser->SetOrderBy(AlbumFileItem::CmpDir);
 			fBrowser->Arrange();
 			break;
-		case MSG_VIEW_COL_0:
+		case CMD_COL_0:
 			fBrowser->SetColumns(0);
 			break;
-		case MSG_VIEW_COL_5:
+		case CMD_COL_5:
 			fBrowser->SetColumns(5);
 			break;
-		case MSG_VIEW_COL_10:
+		case CMD_COL_10:
 			fBrowser->SetColumns(10);
 			break;
-		case MSG_VIEW_MARKED:
+		case CMD_VIEW_MARKED:
 			fBrowser->SetMask(fBrowser->Mask() ^ ITEM_FLAG_MARKED);
 			fOnlyMarked->SetMarked(fBrowser->Mask() & ITEM_FLAG_MARKED);
+			ItemSelected(NULL);
 			break;
-		case MSG_VIEW_TRASH:
+		case CMD_VIEW_TRASH:
 			fBrowser->SetMask(fBrowser->Mask() ^ ITEM_FLAG_DIMMED);
 			fViewTrash->SetMarked(fBrowser->Mask() & ITEM_FLAG_DIMMED);
+			ItemSelected(NULL);
 			break;
-		case MSG_VIEW_LABEL_NAME:
+		case CMD_LABEL_NAME:
 			fShowName->SetMarked(!fShowName->IsMarked());
-			SetLabelFlags();
+			UpdateItemFlags();
 			break;
-		case MSG_VIEW_LABEL_SIZE:
+		case CMD_LABEL_SIZE:
 			fShowSize->SetMarked(!fShowSize->IsMarked());
-			SetLabelFlags();
+			UpdateItemFlags();
 			break;
-		case MSG_VIEW_LABEL_DIM:
+		case CMD_LABEL_DIM:
 			fShowDimension->SetMarked(!fShowDimension->IsMarked());
-			SetLabelFlags();
+			UpdateItemFlags();
 			break;
-		case MSG_FILE_TRASH:
-			MoveToTrash();
+		case CMD_LABEL_MTIME:
+			fShowMTime->SetMarked(!fShowMTime->IsMarked());
+			UpdateItemFlags();
 			break;
+		case CMD_TAG_COPY:
+			CopySelectedTags();
+			break;
+		case CMD_ATTR_REMOVE:
+			DeleteSelectedAttributes();
+			break;
+		case CMD_ATTR_THUMBS_REBUILD:
+			WriteThumbnails(0);
+			break;
+		case CMD_ATTR_THUMBS:
+			WriteThumbnails(1);
+			break;
+		case CMD_ATTR_ICONS:
+			WriteThumbnails(2);
    		default:
-   			// Pass down unrecognised commands!
    			BWindow::MessageReceived(message);
    			break;
 	}
 }
 
 
+
+
 /**
-	User preferencess changed, update accordingly.
-	This should happen at least at startup.
+	User settings changed.
 */
 void MainWindow::PrefsReceived(BMessage *message)
 {
@@ -313,10 +343,9 @@ void MainWindow::PrefsReceived(BMessage *message)
 	if (message->FindString("thumb_attr", &s) == B_OK) 
 		fLoader->SetAttrNames(s);
 	
-	float w, h;
-	if (message->FindFloat("thumb_width", &w) == B_OK &&
-		message->FindFloat("thumb_height", &h) == B_OK)
-			fLoader->SetThumbnailSize(w,h);
+	if (message->FindFloat("thumb_width", &fThumbWidth) == B_OK &&
+		message->FindFloat("thumb_height", &fThumbHeight) == B_OK)
+			fLoader->SetThumbnailSize(fThumbWidth,fThumbHeight);
 			
 	BString format;
 	if (message->FindString("thumb_format", &format) == B_OK) {
@@ -341,15 +370,17 @@ void MainWindow::PrefsReceived(BMessage *message)
 		fWriteAttr.UnlockBuffer();
 	}
 
-	int32 options = 1;
+	int32 options;
 	if (message->FindInt32("load_options", &options) == B_OK) 
 		fLoader->SetLoadOptions(options);
 	
-	if (message->FindInt32("display_options", &options) == B_OK)
+	if (message->FindInt32("display_options", &options) == B_OK) {
 		fBrowser->SetBuffering(options & 1);
-		
+	}
 		
 }
+
+
 
 
 /**
@@ -362,7 +393,6 @@ void MainWindow::DataReceived(BMessage *message)
 	int32 action, i = 0;
 	while (message->FindInt32("be:actions", i++, &action) == B_OK) {
 		if (action == B_COPY_TARGET) {
-			message->PrintToStream();
 			// reply to action initiator
 			BMessage reply(action);
 			BString filetype;
@@ -376,16 +406,22 @@ void MainWindow::DataReceived(BMessage *message)
 			entry_ref ref;
 			get_ref_for_path(path.Path(), &ref);
 			reply.AddRef("directory", &ref);
+
 			// the desired file name
 			BString clipname;
-			
+			message->PrintToStream();
 			if (message->FindString("be:clip_name", &clipname) == B_OK) {
-				PRINT(("dir> %s\n", path.Path()));
-				reply.AddString("name", clipname.String());
-				// try to make it a new file, but if does not work, that's ok too.
 				path.Append(clipname.String());
+				// the initiator probably needs a non-existing entry for new files...
 				BEntry entry(path.Path());
-				entry.Remove();
+				if (entry.Exists()) {
+					// make something up
+					char s[20];
+					time_t curtime = time (NULL);
+					strftime(s, sizeof(s)," %y-%m-%d %H:%M:%S", localtime(&curtime));
+					clipname += s;
+				}
+				reply.AddString("name", clipname.String());
 			}
 			message->SendReply(&reply);
 			return;
@@ -396,10 +432,14 @@ void MainWindow::DataReceived(BMessage *message)
 	RefsReceived(message);
 }
 
+
+
+
 /**
 	One or more files dragged into into the view.
 */
 void MainWindow::RefsReceived(BMessage *message)
+
 {
 	// Check if files were dropped into their own window.
 	BMessenger msgr;
@@ -416,6 +456,8 @@ void MainWindow::RefsReceived(BMessage *message)
 }
 
 
+
+
 /**
 	Handles B_OBSERVER_NOTICE_CHANGE.
 */
@@ -428,8 +470,10 @@ void MainWindow::NoticeReceived(BMessage *message)
 			UpdateReceived(message);
 			break;
 		case MSG_LOADER_DONE:
-			fToolbar->UpdateProgress(fBrowser->CountItems(), 0);
-			PRINT(("done loading\n"));
+			fToolbar->UpdateProgress(1,0);
+			break;
+		case MSG_LOADER_DONE_BUT_RUNNING:
+			fToolbar->UpdateProgress(1,0, _("Querying"));
 			break;
 		case MSG_LOADER_DELETED:
 			DeleteReceived(message);
@@ -437,115 +481,142 @@ void MainWindow::NoticeReceived(BMessage *message)
 	}
 }
 
+
+
+
 /**
 	File info received.
 */
 void MainWindow::UpdateReceived(BMessage *message)
 {
 	BBitmap *bitmap = NULL;
-	entry_ref ref;
 	message->FindPointer("bitmap", (void**)&bitmap);
-	message->FindRef("ref", &ref);
-	int mask = 0;
-	// Find/Create item	
+
+	entry_ref ref;
+	if (message->FindRef("ref", &ref) != B_OK) {
+		// Like.. what?
+		PRINT(("Invalid item.\n"));
+		return;
+	}
+
+	bool redraw = false;
+	uint32 changes = 0;
+
 	AlbumFileItem *item = dynamic_cast<AlbumFileItem*>(fBrowser->EachItem(AlbumFileItem::EqRef, &ref));	
 	if (item) {
 		// Update an existing item
 		if (message->FindRef("newref", &ref) == B_OK) {
 			item->SetRef(ref);
-			fBrowser->HighlightItem(item);
-			mask |= UPDATE_STATS;
+			// name changed
+			redraw = true;
+			changes |= UPDATE_STATS;
 		}
 		if (bitmap) {
-			item->SetBitmap(bitmap);
-			mask |= UPDATE_FRAME;
+			// invalidate the current rect
 			fBrowser->InvalidateItem(item);
+			// and change it...
+			item->SetBitmap(bitmap);
+			item->SetHighlight(1.0);
+			redraw = true;
 		}
 	}
 	else {	
+		// create a new item with an impossible frame
 		item = new AlbumFileItem(BRect(-1,-1,0,0), bitmap);
 		item->SetRef(ref);
+		item->SetHighlight(1.0);
 		if (fBrowser->AddItem(item)) {
-			fBrowser->HighlightItem(item);
-			mask |= UPDATE_STATS;
+			redraw = true;
 			// delete the splash message
 			if (fBrowser->CountItems() == 1)
-				fBrowser->Invalidate();
+				fBrowser->Invalidate();			
 		}
+		changes |= UPDATE_STATS;		
 	}
 	
-	// Feature Indicators
-	int32 flags = 0;
-	flags |= fShowName->IsMarked() ? ITEM_FLAG_LABEL0 : 0;
-	flags |= fShowSize->IsMarked() ? ITEM_FLAG_LABEL1 : 0;
-	flags |= fShowDimension->IsMarked() ? ITEM_FLAG_LABEL2 : 0;
-	// some flags are already set
-	item->SetFlags(item->Flags() | flags);
-	if (message->FindInt32("flags", &flags) == B_OK) {
-		item->SetFlags(item->Flags() | flags);
-		PRINT(("flags %x\n", flags));
-	}
+	
 
 	// File Stats
 	off_t fsize;
 	if (message->FindInt64("fsize", &fsize) == B_OK) {
-		if (item->fFSize != fsize)
-			mask |= UPDATE_STATS;
-		item->fFSize = fsize;
+		if (fsize != item->fFSize)
+			changes |= UPDATE_STATS;
+		item->fFSize = fsize;	
 	}
+
 	ssize_t size;
-	const time_t *time;
-	if (message->FindData("ctime", B_TIME_TYPE, (const void**)&time, &size) == B_OK) {
-		if (item->fCTime != *time)
-			mask |= UPDATE_STATS;
-		item->fCTime = *time;
+	const time_t *ctime;
+	if (message->FindData("ctime", B_TIME_TYPE, (const void**)&ctime, &size) == B_OK) {
+		if (fsize != item->fCTime)
+			changes |= UPDATE_STATS;
+		item->fCTime = *ctime;
 	}
-	if (message->FindData("mtime", B_TIME_TYPE, (const void**)&time, &size) == B_OK) {
-		if (item->fMTime != *time)
-			mask |= UPDATE_STATS;
-		item->fMTime = *time;
+
+	const time_t *mtime;
+	if (message->FindData("mtime", B_TIME_TYPE, (const void**)&mtime, &size) == B_OK) {
+		if (fsize != item->fMTime)
+			changes |= UPDATE_STATS;
+		item->fMTime = *mtime;
 	}
 
 	// JPEG Tags
 	BMessage metadata;
 	if (message->FindMessage("tags", &metadata) == B_OK) {
 		item->fTags = metadata;
-		mask |= UPDATE_TAGS;
+		metadata.FindInt16("Width", &item->fImgWidth);
+		metadata.FindInt16("Height", &item->fImgHeight);
+		changes |= UPDATE_TAGS;	
 	}
 
 	// BFS Attributes
 	if (message->FindMessage("attributes", &metadata) == B_OK) {
 		item->fAttributes = metadata;
-		bool marked;
-		if (metadata.FindBool("Marked", &marked) == B_OK && marked)
-			item->SetFlags(item->Flags() | ITEM_FLAG_MARKED);
-		mask |= UPDATE_ATTRS;
+		// counting on non-BFS volume not getting this part at all...
+		bool marked = false;
+		uint32 oldflags = item->Flags();
+		item->SetFlags(ITEM_FLAG_MARKED, (metadata.FindBool("Marked", &marked) == B_OK) && marked);
+		redraw = oldflags != item->Flags();
+		changes |= UPDATE_ATTRS;	
 	}
 
-	// Update display
-
+	// Other features	
+	int32 flags = 0;	
+	if (message->FindInt32("flags", &flags) == B_OK) {
+		item->SetFlags(ITEM_FLAG_EXIF, flags & HAS_EXIF);
+		item->SetFlags(ITEM_FLAG_IPTC, flags & HAS_IPTC);	
+		redraw = true;	
+	}
 	
-	if (mask & (UPDATE_STATS|UPDATE_FRAME)) {
-		item->Update(fBrowser);
+	// Update display
+	BRect r = item->Frame();
+	item->SetFlags((item->Flags() & 0xffff) | fLabelMask);
+	item->Update(fBrowser);
+	if (r != item->Frame() || (changes & UPDATE_STATS)) {
+		// reflow necessary
 		fBrowser->SortItems();
 		fBrowser->Arrange();
 	}
 
-	if (mask & UPDATE_FRAME) {
+	if(redraw) {
 		fBrowser->InvalidateItem(item);
 	}
 	
 	if (item->IsSelected())
-		fSidebar->Update(mask);
+		fSidebar->Update(changes);
 
 	// Progress Bar
 	int32 total = 0, done = 0;
 	if (message->FindInt32("total", &total) == B_OK) {
 		message->FindInt32("done", &done);
 		fToolbar->UpdateProgress(total, done);
-		fToolbar->SetCounter(fBrowser->CountItems());
 	}
+	
+	fToolbar->SetCounter(fBrowser->CountItems());
+
 }
+
+
+
 
 
 /**
@@ -569,21 +640,61 @@ void MainWindow::DeleteReceived(BMessage *message)
 }
 
 
+
+
+
 /**
 	An item was selected/deselected.
 */
 void MainWindow::ItemSelected(BMessage *message)
 {
-	fSidebar->Update();
-	//DisableUpdates();
-	//int n = fSidebar->ShowSummary();
 	int n = fBrowser->CountSelected();
+	fMoveToTrash->SetEnabled(n > 0);
+	fRemoveFromView->SetEnabled(n > 0);
+	fEditMark->SetEnabled(n > 0);
+	fEditUnmark->SetEnabled(n > 0);
+	for (int i=0;i<fAttrMenu->CountItems();i++)
+		fAttrMenu->ItemAt(i)->SetEnabled(n>0);
 	fToolbar->SetAttrSelected(false);
 	fToolbar->SetSelected(n);
-	//EnableUpdates();
-	fAttrMenu->SetEnabled(n);
-	fMoveToTrash->SetEnabled(n);
+	fSidebar->Update();
+	
+	if (message && n == 1) {
+		AlbumFileItem *item = dynamic_cast<AlbumFileItem*>(fBrowser->SelectedItem(0));
+		// Launch preferred app.
+		bool launch = false;		
+		if (item && message->FindBool("launch",&launch) == B_OK && launch) 
+			be_roster->Launch(&item->Ref());			
+	}
 }
+
+
+
+
+
+
+
+/**
+	File name edit box changed.
+*/
+void MainWindow::ItemRenamed(BMessage *message)
+{
+	BTextControl *source;
+	if (message->FindPointer("source", (void**)&source) == B_OK) {
+		BMessage msg(CMD_OP_RENAME);
+		msg.AddString("name", source->Text());	
+		int32 n = fBrowser->GetSelectedRefs(&msg);
+		// Progress bar state
+		msg.AddFloat("total", n);
+		msg.AddFloat("delta", 1);	
+		
+		BRect r(0,0,280,60);
+		CENTER_IN_FRAME(r,Frame());
+		FileAttrDialog::Execute(r, &msg);
+	}
+}
+
+
 
 
 /**
@@ -597,10 +708,41 @@ void MainWindow::AttributeSelected(BMessage *message)
 }
 
 
+
+
+/**
+	Writes a single attribute, received from the Sidebar.
+*/
+void MainWindow::AttributeChanged(BMessage *message)
+{
+	BMessage msg(CMD_OP_ATTR_WRITE);
+	fBrowser->GetSelectedRefs(&msg);
+
+	const char *name;
+	if (message->FindString("name", &name) == B_OK) {
+		type_code type;
+		if (message->GetInfo("value", &type) == B_OK) {
+			BMessage attrs;
+			const void *data;
+			ssize_t size;
+			message->FindData("value", B_ANY_TYPE, &data, &size);
+			if (attrs.AddData(name, type, data, size) == B_OK) {
+				msg.AddMessage("attributes", &attrs);
+				BRect r(0,0,280,60);
+				CENTER_IN_FRAME(r,Frame());
+				FileAttrDialog::Execute(r, &msg);
+			}
+		}		
+	}
+}
+
+
+
+
 /**
 	Removes all selected items, leaving their files intact.
 */
-void MainWindow::DeleteSelected()
+void MainWindow::DeleteSelection()
 {
 	// Purge Node Monitor cached nodes.
 	BMessage msg(CMD_LOADER_DELETE);
@@ -615,34 +757,38 @@ void MainWindow::DeleteSelected()
 }
 
 
-void MainWindow::MarkSelected(bool enabled)
+
+
+/**
+	Adds or removes 'marked' attribute.
+*/
+void MainWindow::MarkSelection(bool enabled)
 {
-	BMessage target(enabled ? MSG_FILEATTR_WRITE : MSG_FILEATTR_REMOVE);
+
+	BMessage msg(enabled ? CMD_OP_ATTR_WRITE : CMD_OP_ATTR_REMOVE);
+	fBrowser->GetSelectedRefs(&msg);
+	BMessage attrs;
+	attrs.AddBool("Marked", true);
+	msg.AddMessage("attributes", &attrs);
+	
+	BRect r(0,0,280,60);
+	CENTER_IN_FRAME(r,Frame());
+	FileAttrDialog::Execute(r, &msg);
+	
+	// Update display (changes visibility, do this last)
 	AlbumItem *item;
-	for (int i = 0; (item = fBrowser->GetSelection(i)); i++) {
-		if (enabled) 
-			item->SetFlags(item->Flags() | ITEM_FLAG_MARKED); 
-		else
-			item->SetFlags(item->Flags() & ~ITEM_FLAG_MARKED); 
-		fBrowser->InvalidateItem(item);
+	for (int i = 0; (item = fBrowser->ItemAt(i)); i++) {
+		if (item->IsSelected() && fBrowser->IsItemVisible(item)) {
+			item->SetFlags(ITEM_FLAG_MARKED, enabled);
+			fBrowser->InvalidateItem(item);
+		}
 	}
-	// Store flags
-	target.AddBool("Marked", true);
-	fBrowser->GetSelectedRefs(&target);
-	FileAttrDialog::Execute(Frame().LeftTop(), &target);
+	ItemSelected(NULL);
+	
 }
 
 
-void MainWindow::RenameSelected(BMessage *message)
-{
-	BTextControl *source;
-	if (message->FindPointer("source", (void**)&source) == B_OK) {
-		BMessage target(MSG_FILEENTRY_RENAME);
-		target.AddString("name", source->Text());	
-		fBrowser->GetSelectedRefs(&target);
-		FileNameDialog::Execute(Frame().LeftTop(), &target);
-	}
-}
+
 
 
 void MainWindow::CopySelectedTags()
@@ -652,9 +798,9 @@ void MainWindow::CopySelectedTags()
 	fSidebar->GetSelectedTags(&tags);
 	AlbumFileItem *item;
 	BNode node;
-	for (int i = 0; (item = (AlbumFileItem*)fBrowser->GetSelection(i)); i++) {
+	for (int i = 0; (item = (AlbumFileItem*)fBrowser->ItemAt(i)); i++) {
 		// targeted node
-		if (node.SetTo(&item->Ref()) != B_OK)
+		if (!item->IsSelected() || node.SetTo(&item->Ref()) != B_OK)
 			continue;
 		char *name;
 		type_code type;
@@ -668,51 +814,73 @@ void MainWindow::CopySelectedTags()
 }
 
 
+
+
+
 void MainWindow::DeleteSelectedAttributes()
 {
-	// get the selected names
-	BMessage target(MSG_FILEATTR_REMOVE);
-	fBrowser->GetSelectedRefs(&target);
-	fSidebar->GetSelectedAttrs(&target);
-	FileAttrDialog::Execute(Frame().LeftTop() + BPoint(70,70), &target);
+	BMessage msg(CMD_OP_ATTR_REMOVE);
+	int32 n = fBrowser->GetSelectedRefs(&msg);
+	// Progress bar state
+	msg.AddFloat("total", n);
+	msg.AddFloat("delta", 1);	
+		
+	BMessage attrs;
+	fSidebar->GetSelectedAttrs(&attrs);
+	msg.AddMessage("attributes",&attrs);
+
+	BRect r(0,0,280,60);
+	CENTER_IN_FRAME(r,Frame());
+	FileAttrDialog::Execute(r, &msg);
 }
+
+
+
 
 
 /**
-	Writes a single attribute, received from the Sidebar.
+	Make Tracker icons or thumbnail attributes.
+	
+	mode 0 - thumbnail attributes, reload images
+	mode 1 - thumbnail attributes, current bitmaps
+	mode 2 - Tracker icons
 */
-void MainWindow::AttributeChanged(BMessage *message)
+void MainWindow::WriteThumbnails(int mode)
 {
-	// get the selected names
-	BMessage target(MSG_FILEATTR_WRITE);
-	fBrowser->GetSelectedRefs(&target);
-	const char *name;
-	if (message->FindString("name", &name) == B_OK) {
-		type_code type;
-		if (message->GetInfo("value", &type) == B_OK) {
-			const void *data;
-			ssize_t size;
-			message->FindData("value", B_ANY_TYPE, &data, &size);
-			if (target.AddData(name, type, data, size) == B_OK)
-				FileAttrDialog::Execute(Frame().LeftTop() + BPoint(70,70), &target);
-		}
-	}
 	
-}
-
-
-void MainWindow::WriteTrackerIcons(BMessage *target)
-{
-	target->AddString("name", fWriteAttr.String());
-	target->AddInt32("format", fThumbFormat);
+	BRect r(0,0,280,60);
+	CENTER_IN_FRAME(r,Frame());
+	fFileOpDlg = FileAttrDialog::Execute(r, NULL);
+/*
+	Items can be processed with a 'refs' array but that would totally 
+	hog the processing window's message loop, so we break it up.
+*/
+	int32 n = fBrowser->CountSelected();
+	int32 d = 0;
 	AlbumFileItem *item;
-	for (int i = 0; (item = (AlbumFileItem*)fBrowser->GetSelection(i)); i++) {
-		target->AddRef("refs", &item->Ref());
-		target->AddPointer("bitmap", item->Bitmap());
+	for (int i = 0; (item = dynamic_cast<AlbumFileItem*>(fBrowser->ItemAt(i))); i++) {
+		if (!item->IsSelected() || !fBrowser->IsItemVisible(item))
+			continue;
+		PRINT(("%d %d\n",n,i));
+		BMessage msg(mode == 2 ? CMD_OP_ICONS : CMD_OP_THUMBS);
+		msg.AddString("thumb_atrr", fWriteAttr.String());
+		msg.AddInt32("thumb_format", fThumbFormat);
+		msg.AddFloat("thumb_width", fThumbWidth);
+		msg.AddFloat("thumb_height", fThumbHeight);	
+		msg.AddRef("refs", &item->Ref());
+		// don't reload for icons
+		if (mode > 0)
+			msg.AddPointer("bitmap", item->Bitmap());
+		// Progress bar state
+		msg.AddFloat("total", n);
+		msg.AddFloat("delta", ++d);	
+		// offload to another thread...	
+		fFileOpDlg->PostMessage(&msg, NULL, this);
 	}
-	FileAttrDialog::Execute(Frame().LeftTop() + BPoint(70,70), target);
-	
 }
+
+
+
 
 
 /**
@@ -720,30 +888,97 @@ void MainWindow::WriteTrackerIcons(BMessage *target)
 */
 void MainWindow::MoveToTrash()
 {
-	BMessage target(MSG_FILEENTRY_TRASH);
-	fBrowser->GetSelectedRefs(&target);
-	FileNameDialog::Execute(Frame().LeftTop() + BPoint(70,70), &target);
+	BMessage msg(CMD_OP_TRASH);
+	int32 n = fBrowser->GetSelectedRefs(&msg);
+	// Progress bar state
+	msg.AddFloat("total", n);
+	msg.AddFloat("delta", 1);	
+	
+	BRect r(0,0,240,60);
+	CENTER_IN_FRAME(r,Frame());
+	FileAttrDialog::Execute(r, &msg);
 }
+
+
 
 
 
 /**
 	Changes thumbnail captions.
 */
-void MainWindow::SetLabelFlags()
+void MainWindow::UpdateItemFlags()
 {
-	uint32 mask = ITEM_FLAG_LABEL0 | ITEM_FLAG_LABEL1 | ITEM_FLAG_LABEL2;
-	int32 flags = 0;
-	flags |= fShowName->IsMarked() ? ITEM_FLAG_LABEL0 : 0;
-	flags |= fShowSize->IsMarked() ? ITEM_FLAG_LABEL1 : 0;
-	flags |= fShowDimension->IsMarked() ? ITEM_FLAG_LABEL2 : 0;
+	fLabelMask = 0;
+	fLabelMask |= fShowName->IsMarked() ? ITEM_FLAG_LABEL0 : 0;
+	fLabelMask |= fShowSize->IsMarked() ? ITEM_FLAG_LABEL1 : 0;
+	fLabelMask |= fShowDimension->IsMarked() ? ITEM_FLAG_LABEL2 : 0;
+	fLabelMask |= fShowMTime->IsMarked() ? ITEM_FLAG_LABEL3 : 0;
+
 	AlbumItem *item;
 	for (int i = 0; (item = fBrowser->ItemAt(i)); i++) {
-		item->SetFlags((item->Flags() & ~mask) | flags);
+		item->SetFlags((item->Flags() & 0xffff) | fLabelMask);
 		item->Update(fBrowser);
 	}
+
 	fBrowser->Arrange(false);
 	fBrowser->Invalidate();
 }
 
+
+/**
+	Copies references to The Clipboard.
+	Does not work for Tracker.
+	Experimental.
+*/
+void MainWindow::CopyToClipboard()
+{
+	if (fBrowser->CountSelected() == 0)
+		return;
+		
+	BMessage* clip = (BMessage *)NULL;
+  	if (be_clipboard->Lock()) {
+		be_clipboard->Clear();
+		if ((clip=be_clipboard->Data()))
+		{
+			AlbumFileItem *item;
+			for (int i=0; (item = dynamic_cast<AlbumFileItem*>(fBrowser->ItemAt(i))); i++) {
+				if (item->IsSelected() && fBrowser->IsItemVisible(item)) {
+					char s[20];
+					sprintf(s,"r_%ld",item->Serial());
+					clip->AddRef(s,&item->Ref());
+				}
+			}
+			be_clipboard->Commit();
+		}
+		be_clipboard->Unlock();
+ 	}	
+}
+
+/**
+	Paster sreferences from The Clipboard.
+	Can paste Tracker files.
+	Experimental.
+*/
+void MainWindow::PasteFromClipboard()
+{
+	BMessage* clip = (BMessage *)NULL;
+  	if (be_clipboard->Lock()) {
+		if ((clip=be_clipboard->Data()))
+		{
+			// find all refs and add them...
+			BMessage msg(B_SIMPLE_DATA);
+			entry_ref ref;
+			char *name;
+			uint32 type;
+			int32 count;
+			for ( int32 i = 0; clip->GetInfo(B_REF_TYPE, i, &name, &type, &count) == B_OK; i++ ) {			
+				if (clip->FindRef(name,&ref) == B_OK)
+					msg.AddRef("refs", &ref);
+			}
+			if (!msg.IsEmpty())
+				fLoader->PostMessage(&msg, NULL, this);			
+		}
+		be_clipboard->Unlock();
+ 	}	
+}
 

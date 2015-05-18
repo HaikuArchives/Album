@@ -4,16 +4,11 @@
 #include <LayoutView.h>
 
 class BSlider;
-class BControl;
-class BStringView;
 class ProgressBar;
 
 enum {
 	MSG_TOOLBAR_ZOOM = 'zoom',
 	MSG_TOOLBAR_STOP = 'stop',
-	MSG_TOOLBAR_REMOVE = 'remv',
-	MSG_TOOLBAR_TAGCOPY = 'tagc',
-	MSG_TOOLBAR_MARK = 'mark',
 };
 
 class MainToolbar : public LayoutView 
