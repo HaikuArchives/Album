@@ -4,22 +4,22 @@
 
 Copyright (c) 2006 by Matjaz Kovac
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do 
+of the Software, and to permit persons to whom the Software is furnished to do
 so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
@@ -38,20 +38,28 @@ enum layout_hints {
 	LAYOUT_HINT_BREAK = 4, ///< Force a flow break <b>after</b> a frame.
 	LAYOUT_HINT_OVERRUN = 8, ///< Prevent a flow break <b>on</b> a frame.
 	LAYOUT_HINT_CLIP = 16, ///< Shorten a frame if the constraint frame is overrun.
-	LAYOUT_HINT_HCENTER = 32, 
-	LAYOUT_HINT_VCENTER = 64, 
+	LAYOUT_HINT_HCENTER = 32,
+	LAYOUT_HINT_VCENTER = 64,
 };
 
-/** 
+/**
 	Abstract layout engine interface.
 */
 class LayoutPlan
 {
-		
+
 public:
 	LayoutPlan(BRect frame);
-	inline BRect& Frame();
-	inline BRect& Last();
+
+	/**
+	Get the constraint frame.
+
+	The constraint frame is merely a guide. Element frames may be placed out of bounds,
+	but this should be explicitly hinted.
+	*/
+	inline BRect& Frame() { return (BRect&)fFrame; }
+	inline BRect& Last() { return (BRect&)fLast; }
+
 	BPoint Spacing();
 	void SetSpacing(float x, float y);
 	virtual void Reset();
@@ -82,12 +90,12 @@ private:
 class StripesLayout : public LayoutPlan
 {
 	public:
-	
+
 	/// mode: B_HORIZONTAL, B_VERTICAL
 	StripesLayout(BRect frame, uint32 orientation);
 	StripesLayout(uint32 orientation);
 	virtual BRect Next(BRect frame, uint32 hint = LAYOUT_HINT_NONE);
-	inline uint32 Mode();	
+	inline uint32 Mode();
 	private:
 	uint32 fMode;
 };

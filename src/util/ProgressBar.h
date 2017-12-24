@@ -15,25 +15,25 @@ class ProgressBar: public BView
 	virtual void AttachedToWindow();
 	virtual void Draw(BRect update);
 	virtual void MessageReceived(BMessage *message);
-	inline rgb_color BarColor() const;
+	inline rgb_color BarColor() const { return(fBarColor); }
 	void SetBarColor(rgb_color color);
 	void SetStripe(float portion, float tint = B_LIGHTEN_1_TINT);
 
-	inline border_style BorderStyle() const;
-	void SetBorderStyle(border_style border);	
-	
-	inline float CurrentValue() const;
+	inline border_style BorderStyle() const { return(fBorderStyle); }
+	void SetBorderStyle(border_style border);
+
+	inline float CurrentValue() const { return(fCurrent); }
 	void SetCurrentValue(float value);
 
-	inline float MaxValue() const;
+	inline float MaxValue() const { return(fMaxValue); }
 	void SetMaxValue(float value);
 
-	inline const char* Text() const;
+	inline const char* Text() const { return(fText.String()); }
 	virtual void SetText(const char *text);
 
 	virtual void Reset(const char *text = NULL);
 	virtual void Update(float delta, const char *text = NULL);
-			
+
 	private:
 
 	BString fText;

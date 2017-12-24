@@ -1,22 +1,22 @@
 /**
 Copyright (c) 2006-2008 by Matjaz Kovac
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of 
-this software and associated documentation files (the "Software"), to deal in 
-the Software without restriction, including without limitation the rights to 
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do 
+of the Software, and to permit persons to whom the Software is furnished to do
 so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all 
+The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 \file ProgressBar.cpp
@@ -62,7 +62,7 @@ void ProgressBar::AttachedToWindow()
 void ProgressBar::Draw(BRect update)
 {
 	BRect bar = Bounds();
-	
+
 	// Border
 	if (fBorderStyle != B_NO_BORDER) {
 		rgb_color light = tint_color(ui_color(B_PANEL_BACKGROUND_COLOR), B_LIGHTEN_2_TINT);
@@ -82,7 +82,7 @@ void ProgressBar::Draw(BRect update)
 		EndLineArray();
 		bar.InsetBy(1,1);
 	}
-	
+
 	// Value
 	SetDrawingMode(B_OP_COPY);
 	float xs = bar.left;
@@ -117,14 +117,14 @@ void ProgressBar::Draw(BRect update)
 	is not set to 100.0 but it is instead set to whatever is stored in "max_value" field
 	or left unchanged if that field is absent.
 	B_UPDATE_STATUS_BAR also recognises "max_value" the rest is the same as with BStatusBar.
-	
+
 	Commands and fields:
 	- B_UPDATE_STATUS_BAR: Increments CurrentValue() by "delta" (float) and
 	sets Text() to "text" (string) if present. Also sets MaxValue() to "max_value"
 	if present.
 	- B_RESET_STATUS_BAR: Sets CurrentValue() to 0.
 	Sets Text() to "label" if present and MaxValue() to "max_value", if present.
-	
+
 */
 void ProgressBar::MessageReceived(BMessage *message)
 {
@@ -135,7 +135,7 @@ void ProgressBar::MessageReceived(BMessage *message)
 			message->FindFloat("delta", &delta);
 			message->FindString("text", &text);
 			Update(delta, text);
-			break;		
+			break;
 		case B_RESET_STATUS_BAR:
 			message->FindString("label", &text);
 			Reset(text);
@@ -143,51 +143,6 @@ void ProgressBar::MessageReceived(BMessage *message)
 		default:
 			BView::MessageReceived(message);
 	}
-}
-
-
-/**
-	Returns the current value.
-*/
-float ProgressBar::CurrentValue() const
-{
-	return(fCurrent);
-}
-
-
-/**
-	Returns the current maximum value.
-*/
-float ProgressBar::MaxValue() const
-{
-	return(fMaxValue);
-}
-
-
-/**
-	Returns the current bar text.
-*/
-const char* ProgressBar::Text() const
-{
-	return(fText.String());
-}
-
-
-/**
-	Returns the current bar color.
-*/
-rgb_color ProgressBar::BarColor() const
-{
-	return(fBarColor);
-}
-
-
-/**
-	Returns the current border style.
-*/
-border_style ProgressBar::BorderStyle() const
-{
-	return(fBorderStyle);
 }
 
 
@@ -213,7 +168,7 @@ void ProgressBar::SetStripe(float portion, float tint)
 	Sets the border style.
 	- B_NO_BORDER means no border, which leaves more room for the progress bar.
 	- B_PLAIN_BORDER is a one pixel wide bevel.
-	- B_FANCY_BORDER is a two pixels wide ridge-like border.	
+	- B_FANCY_BORDER is a two pixels wide ridge-like border.
 */
 void ProgressBar::SetBorderStyle(border_style border)
 {
