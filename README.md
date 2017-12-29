@@ -1,4 +1,4 @@
-Album (code name Aberration)
+Album
 ---------------------------------------
 Copyright (c) 2006-2015 by Matjaž Kovač
 
@@ -7,19 +7,6 @@ The idea is to have a work pad for pictures from different locations so they may
 The program is not limited to pictures and BFS (Be File System) volumes, although that makes most sense since some of the functionality has to do with file attributes. 
 
 ![Album screenshot](Album.png "Album")
-
-DISTRIBUTION
-------------
-
-This software is distributed under the terms of the MIT license. See LICENSE for details.
-
-
-DOCUMENTATION AND UPDATES
--------------------------
-
-Functionality is very similar to previous versions as described at
-http://users.volja.net/mkovac1/proj/album 
-
 
 COMPILING
 ---------
