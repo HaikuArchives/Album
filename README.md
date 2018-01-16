@@ -1,4 +1,4 @@
-Album
+# Album
 ---------------------------------------
 Copyright (c) 2006-2015 by Matjaž Kovač
 
@@ -8,19 +8,19 @@ The program is not limited to pictures and BFS (Be File System) volumes, althoug
 
 ![Album screenshot](Album.png "Album")
 
-COMPILING
+## Compiling
 ---------
 
 BeOS Generic Makefile, compiles on recent Haiku builds and BeOS R5 with some features disabled. Requires development headers for 'libiptcdata' library. 
 
-AUTHOR
+## Author
 ------
 
 Matjaž Kovač
 Ljubljana, Slovenia
 matjakov@gmail.com
 
-CHANGES
+## Changes
 -------
 
 From 0.9.3 to 0.9.4
