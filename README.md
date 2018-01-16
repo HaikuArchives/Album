@@ -1,33 +1,27 @@
-Album (code name Aberration)
-
+Album
+---------------------------------------
 Copyright (c) 2006-2015 by Matjaž Kovač
 
 Album is a file browsing and tagging utility for BeOS/Haiku. 
 The idea is to have a work pad for pictures from different locations so they may be viewed and tagged. 
 The program is not limited to pictures and BFS (Be File System) volumes, although that makes most sense since some of the functionality has to do with file attributes. 
 
-DISTRIBUTION
-
-This software is distributed under the terms of the MIT license. See LICENSE for details.
-
-
-DOCUMENTATION AND UPDATES
-
-Functionality is very similar to previous versions as described at
-http://users.volja.net/mkovac1/proj/album 
-
+![Album screenshot](Album.png "Album")
 
 COMPILING
+---------
 
 BeOS Generic Makefile, compiles on recent Haiku builds and BeOS R5 with some features disabled. Requires development headers for 'libiptcdata' library. 
 
 AUTHOR
+------
 
 Matjaž Kovač
 Ljubljana, Slovenia
 matjakov@gmail.com
 
 CHANGES
+-------
 
 From 0.9.3 to 0.9.4
 -source reworked
