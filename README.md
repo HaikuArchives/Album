@@ -9,9 +9,11 @@ The program is not limited to pictures and BFS (Be File System) volumes, althoug
 
 ## Compiling
 
+```
 git clone https://github.com/HaikuArchives/Album
 pkgman install libiptcdata_devel
 cd Album/src && make
+```
 
 ## Author
 
