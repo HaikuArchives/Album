@@ -9,7 +9,9 @@ The program is not limited to pictures and BFS (Be File System) volumes, althoug
 
 ## Compiling
 
-BeOS Generic Makefile, compiles on recent Haiku builds and BeOS R5 with some features disabled. Requires development headers for 'libiptcdata' library. 
+git clone https://github.com/HaikuArchives/Album
+pkgman install libiptcdata_devel
+cd Album/src && make
 
 ## Author
 
@@ -20,20 +22,20 @@ matjakov@gmail.com
 ## Changes
 
 From 0.9.3 to 0.9.4
--source reworked
--Haiku tooltips, colors and date localization
--navigation improvements
--image loading bugs fixed
--UI glitches fixed
--redundant messaging removed
--new preferences
--"rebuild thumbnails" menu option
--mod. time label added
--experimental clipboard support
+- source reworked
+- Haiku tooltips, colors and date localization
+- navigation improvements
+- image loading bugs fixed
+- UI glitches fixed
+- redundant messaging removed
+- new preferences
+- "rebuild thumbnails" menu option
+- mod. time label added
+- experimental clipboard support
 
 
 From 0.9.1 to 0.9.2
-- Improved inter-apllication interoperability by implementing the negotiaded drag&drop. This allows you to drag images from PhotoGrabber (camera import utility) and similar applications. It isn't ideal though. 
+- Improved inter-apllication interoperability by implementing the negotiated drag&drop. This allows you to drag images from PhotoGrabber (camera import utility) and similar applications. It isn't ideal though. 
 The problem is that kind of data exchange only works on files so Album first
 creates a temporary directory in B_COMMON_TEMP_DIRECTORY/Album and starts watching for new files. 
 It then instructs the sender (the application files are dragged from) to store its
@@ -69,5 +71,3 @@ From 0.1 to 0.3
 - Improved font sensitivity
 - Added Labels menu
 - Minor changes
-
-
