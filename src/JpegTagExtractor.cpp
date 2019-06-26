@@ -28,6 +28,8 @@ SOFTWARE.
 #include <libiptcdata/iptc-jpeg.h>
 #include <JpegTagExtractor.h>
 
+#include <netinet/in.h>
+
 /* JPEG marker magics */
 enum JPEG_MARKER {
   SOF0 = 0xc0, SOF1 = 0xc1, SOF2 = 0xc2, SOF3 = 0xc3,
